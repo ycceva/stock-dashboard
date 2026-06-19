@@ -541,7 +541,7 @@
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
         .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<&]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" contenteditable="false" style="color:#4a8ac4;word-break:break-all;text-decoration:underline;" onclick="event.stopPropagation();window.open(this.href,\'_blank\');return false;">$1</a>' + Z);
+        .replace(/(https?:\/\/[^\s<&]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" contenteditable="false" style="color:#4a8ac4;word-break:break-all;text-decoration:underline;cursor:pointer;">$1</a>' + Z);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -731,8 +731,7 @@
           a.target = '_blank';
           a.rel = 'noopener noreferrer';
           a.contentEditable = 'false';
-          a.setAttribute('onclick', "event.stopPropagation();window.open(this.href,'_blank');return false;");
-          a.style.cssText = 'color:#4a8ac4;word-break:break-all;text-decoration:underline;';
+          a.style.cssText = 'color:#4a8ac4;word-break:break-all;text-decoration:underline;cursor:pointer;';
           a.textContent = m[1];
           frag.appendChild(a);
           frag.appendChild(document.createTextNode('​'));
@@ -1558,6 +1557,21 @@ async function doRestore() {
     // 자유노트 두 개 초기화
     initNote('free-note',  'note-status',  'freenote');
     initNote('free-note2', 'note-status2', 'freenote2');
+
+    // ─────────────────────────────────────────────────────────
+    // 링크 탭 처리: iOS Safari에서 contenteditable 내부 <a> 링크가
+    // 클릭되지 않는 문제를 pointerdown 캡처 페이즈로 해결
+    // ─────────────────────────────────────────────────────────
+    document.addEventListener('pointerdown', function(e) {
+      const a = e.target.closest('a[href]');
+      if (!a) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const url = a.href;
+      // window.open이 막히면(iOS PWA 등) location.href 사용
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!w) { location.href = url; }
+    }, true);
 
     init();
   </script>
