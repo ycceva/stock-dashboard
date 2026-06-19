@@ -709,6 +709,42 @@
       return raw;
     }
 
+    // 자유노트에서 URL 텍스트 → 클릭 가능한 링크로 자동 변환
+    function processLinks(container) {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n.parentElement?.tagName !== 'A' &&
+            !n.parentElement?.classList.contains('chip') &&
+            /https?:\/\//.test(n.textContent)) nodes.push(n);
+      }
+      nodes.forEach(textNode => {
+        const text = textNode.textContent;
+        const re = /(https?:\/\/[^\s]+)/g;
+        let lastIdx = 0, m, hasLink = false;
+        const frag = document.createDocumentFragment();
+        while ((m = re.exec(text)) !== null) {
+          if (m.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+          const a = document.createElement('a');
+          a.href = m[1];
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.contentEditable = 'false';
+          a.setAttribute('onclick', "event.stopPropagation();window.open(this.href,'_blank');return false;");
+          a.style.cssText = 'color:#4a8ac4;word-break:break-all;text-decoration:underline;';
+          a.textContent = m[1];
+          frag.appendChild(a);
+          frag.appendChild(document.createTextNode('​'));
+          lastIdx = m.index + m[0].length;
+          hasLink = true;
+        }
+        if (!hasLink) return;
+        if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+        textNode.parentNode.replaceChild(frag, textNode);
+      });
+    }
+
     // 자유노트 등 contentEditable에서 [text]/[!text]/[?text] → 칩 span으로 즉시 변환
     function processChips(container) {
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -1460,6 +1496,7 @@ async function doRestore() {
       async function save() {
         showStatus('saving', '저장 중...');
         processChips(area); // [text] → 칩 span 변환
+        processLinks(area); // URL → 클릭 가능한 링크 변환
 
         try {
           const { error } = await db.from('study_notes').upsert({ id: supabaseId, content: area.innerHTML, updated_at: new Date().toISOString() });
