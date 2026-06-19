@@ -540,7 +540,8 @@
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
-        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z);
+        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
+        .replace(/(https?:\/\/[^\s<&]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" contenteditable="false" style="color:#4a8ac4;word-break:break-all;text-decoration:underline;" onclick="event.stopPropagation();window.open(this.href,\'_blank\');return false;">$1</a>' + Z);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -697,6 +698,9 @@
             // 드래그로 바뀐 width도 저장: [img:200px|data:...]
             const w = child.style.width;
             raw += '[img:' + (w ? w + '|' : '') + child.src + ']';
+          } else if (tag === 'A') {
+            // 링크 → href URL 그대로 저장
+            raw += child.href || child.textContent;
           } else {
             raw += cellDomToRaw(child);
           }
