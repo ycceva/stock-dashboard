@@ -1310,8 +1310,8 @@ async function doRestore() {
 
     document.addEventListener('click', closeImgUI);
 
-    // contenteditable 안 링크 클릭 처리
-    document.addEventListener('click', e => {
+    // contenteditable 안 링크 — mousedown에서 처리해야 브라우저 가로채기 방지
+    document.addEventListener('mousedown', e => {
       const span = e.target.closest('span.cell-link');
       if (!span) return;
       e.preventDefault();
