@@ -352,8 +352,7 @@
     .cell-link {
       color: #5a8fc4;
       text-decoration: underline;
-      cursor: pointer;
-      user-select: text;
+      cursor: pointer !important;
     }
   </style>
 </head>
@@ -527,7 +526,10 @@
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
         .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<>"]+)/g, '<span class="cell-link" contenteditable="false" data-href="$1">$1</span>');
+        .replace(/(https?:\/\/[^\s<>"]+)/g, (_, url) => {
+          const safe = url.replace(/'/g, '%27');
+          return `<a href="${url}" target="_blank" rel="noopener" class="cell-link" onmousedown="event.stopPropagation();window.open('${safe}','_blank','noopener');return false;">${url}</a>`;
+        });
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -1310,14 +1312,6 @@ async function doRestore() {
 
     document.addEventListener('click', closeImgUI);
 
-    // contenteditable 안 링크 — mousedown에서 처리해야 브라우저 가로채기 방지
-    document.addEventListener('mousedown', e => {
-      const span = e.target.closest('span.cell-link');
-      if (!span) return;
-      e.preventDefault();
-      e.stopPropagation();
-      window.open(span.dataset.href, '_blank', 'noopener');
-    });
 
     // ════════════════════════════════════════════════════════
     //  자유노트
