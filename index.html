@@ -1476,6 +1476,16 @@ async function doRestore() {
     }
 
     function linkifyNoteUrls(area) {
+      // 1. 이미 저장된 .cell-link span에 onclick 재연결
+      // (innerHTML 저장 시 DOM 이벤트 프로퍼티가 날아가는 문제 방지)
+      area.querySelectorAll('span.cell-link').forEach(span => {
+        const url = span.textContent.trim();
+        if (!url) return;
+        const safe = url.replace(/'/g, '%27');
+        span.onclick = e => { e.stopPropagation(); e.preventDefault(); window.open(safe, '_blank', 'noopener'); };
+      });
+
+      // 2. 텍스트 노드에 남은 plain URL → 클릭 가능 span으로 변환
       const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT);
       const nodes = [];
       let n;
