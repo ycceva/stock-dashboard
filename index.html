@@ -549,9 +549,9 @@
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
         .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<>"\u200B\u200B]+)/g, (_, url) => {
-          const safe = url.replace(/"/g, '&quot;');
-          return `<span class="cell-link" contenteditable="false" data-href="${safe}">${safe}</span>`;
+        .replace(/(https?:\/\/[^\s<>"]+)/g, (_, url) => {
+          const safe = url.replace(/'/g, '%27').replace(/"/g, '&quot;');
+          return `<span class="cell-link" contenteditable="false" onclick="event.stopPropagation();event.preventDefault();window.open('${safe}','_blank','noopener')">${url}</span>`;
         });
     }
 
@@ -1467,10 +1467,45 @@ async function doRestore() {
       }
     }
 
-    // 노트 로드 후 기존 이미지에 핸들러 재연결
+    // 노트 로드 후 기존 이미지에 핸들러 재연결 + URL 텍스트 → 클릭 가능 span 변환
     function reattachNoteImgs(area) {
       area.querySelectorAll('img').forEach(img => {
         registerImg(img, i => { deleteStorageImg(i.src); i.remove(); area.dispatchEvent(new Event('blur')); });
+      });
+      linkifyNoteUrls(area);
+    }
+
+    function linkifyNoteUrls(area) {
+      const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n.parentElement?.classList.contains('cell-link')) continue;
+        if (n.parentElement?.classList.contains('chip')) continue;
+        if (/https?:\/\//.test(n.textContent)) nodes.push(n);
+      }
+      nodes.forEach(textNode => {
+        const text = textNode.textContent;
+        const re = /(https?:\/\/[^\s<>"]+)/g;
+        let lastIdx = 0, m;
+        const frag = document.createDocumentFragment();
+        let found = false;
+        while ((m = re.exec(text)) !== null) {
+          if (m.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+          const url = m[1];
+          const safe = url.replace(/'/g, '%27');
+          const span = document.createElement('span');
+          span.className = 'cell-link';
+          span.contentEditable = 'false';
+          span.textContent = url;
+          span.onclick = e => { e.stopPropagation(); e.preventDefault(); window.open(safe, '_blank', 'noopener'); };
+          frag.appendChild(span);
+          lastIdx = m.index + m[0].length;
+          found = true;
+        }
+        if (!found) return;
+        if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+        textNode.parentNode.replaceChild(frag, textNode);
       });
     }
 
