@@ -351,10 +351,10 @@
     /* ── contenteditable 안 링크 ── */
     .cell-link {
       color: #5a8fc4;
-      text-decoration: none;
+      text-decoration: underline;
       cursor: pointer;
+      user-select: text;
     }
-    .cell-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -527,7 +527,7 @@
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
         .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener" class="cell-link">$1</a>');
+        .replace(/(https?:\/\/[^\s<>"]+)/g, '<span class="cell-link" contenteditable="false" data-href="$1">$1</span>');
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -1312,11 +1312,11 @@ async function doRestore() {
 
     // contenteditable 안 링크 클릭 처리
     document.addEventListener('click', e => {
-      const a = e.target.closest('a.cell-link');
-      if (!a) return;
+      const span = e.target.closest('span.cell-link');
+      if (!span) return;
       e.preventDefault();
       e.stopPropagation();
-      window.open(a.href, '_blank', 'noopener');
+      window.open(span.dataset.href, '_blank', 'noopener');
     });
 
     // ════════════════════════════════════════════════════════
