@@ -41,6 +41,7 @@
       padding: 3px 9px; cursor: pointer;
     }
     .backup-btn:hover { border-color: #555; color: #aaa; }
+
     /* ── Section ── */
     .section { margin-bottom: 18px; }
     .section-title {
@@ -57,22 +58,25 @@
     .timeline-grid {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
-      grid-auto-rows: auto;
+      grid-auto-rows: auto; /* 행 높이는 컨텐츠에 맞게 자동 */
       width: 100%;
       border: 1px solid #333;
       border-radius: 6px;
       overflow: hidden;
     }
 
+    /* 모바일: 6열 → 6개월씩 두 줄 */
     @media (max-width: 640px) {
       .timeline-grid {
         grid-template-columns: repeat(6, minmax(0, 1fr));
       }
+      /* 7~12월 상단 구분선 */
       .tl-col:nth-child(n+7) .tl-quant {
         border-top: 2px solid #3d3d3d;
       }
     }
 
+    /* 각 월 컬럼: subgrid로 부모 행 공유 → 라벨이 모든 컬럼에서 같은 높이 유지 */
     .tl-col {
       display: grid;
       grid-template-rows: subgrid;
@@ -140,6 +144,7 @@
     }
     .month-table th:last-child { border-right: none; }
 
+    /* 드래그 핸들 */
     .col-resizer {
       position: absolute;
       right: 0; top: 0; bottom: 0;
@@ -172,6 +177,7 @@
     }
     .month-label-cell:hover { background: #2a2a2a; }
 
+    /* 접기/펴기 화살표 */
     .toggle-arrow {
       display: inline-block;
       font-size: 8px;
@@ -180,6 +186,7 @@
       transition: transform 0.15s ease;
     }
 
+    /* 접힌 상태 */
     tr.collapsed .toggle-arrow { transform: rotate(-90deg); }
     tr.collapsed td:not(.month-label-cell) {
       padding: 0;
@@ -270,6 +277,7 @@
     }
     .add-month-btn:hover { background: #252525; color: #aaa; }
 
+    /* 테이블 가로 스크롤 래퍼 */
     .table-wrap {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
@@ -278,6 +286,7 @@
 
     @media (max-width: 640px) {
       body { padding: 10px; }
+      /* 모바일에서 드래그 핸들 숨김 */
       .col-resizer { display: none; }
     }
 
@@ -302,14 +311,17 @@
     .free-note-area:empty::before {
       content: attr(data-ph); color: #333; pointer-events: none; display: block;
     }
+    /* 자유노트 이미지: float으로 텍스트가 여러 줄 나란히 흐름 */
     .free-note-area img {
       float: left;
       max-width: 48%; border-radius: 6px;
       margin: 2px 12px 6px 0; cursor: pointer;
     }
     .free-note-area::after { content: ''; display: block; clear: both; }
+    /* Chrome이 auto 생성하는 <div> 래퍼를 inline으로 → float 컨텍스트 유지 */
     .free-note-area > div, .free-note-area > p { display: inline; margin: 0; padding: 0; }
     .img-selected { outline: 2px solid #4a8ac4; outline-offset: 1px; }
+    /* 데스크탑: 이미지 위에 떠있는 툴바 */
     .img-toolbar {
       position: fixed; z-index: 9999;
       background: #222; border: 1px solid #333; border-radius: 6px;
@@ -324,6 +336,7 @@
     .img-toolbar button:hover { background: #333; color: #fff; }
     .img-toolbar button.del { color: #f87171; }
     .img-toolbar button.del:hover { background: rgba(248,113,113,0.15); }
+    /* 모바일: 화면 하단 고정 바 */
     @media (pointer: coarse) {
       .img-toolbar {
         position: fixed; bottom: 0; left: 0; right: 0; top: auto !important;
@@ -347,13 +360,6 @@
     .free-note-status { font-size:10px; color:#444; display:block; text-align:right; min-height:14px; margin-bottom:2px; transition:color 0.2s; }
     .free-note-status.saving { color:#f0a500; }
     .free-note-status.saved  { color:#4ade80; }
-
-    /* ── contenteditable 안 링크 ── */
-    .cell-link {
-      color: #5a8fc4;
-      text-decoration: underline;
-      cursor: pointer !important;
-    }
   </style>
 </head>
 <body>
@@ -410,6 +416,7 @@
     <button class="add-month-btn" onclick="addMonthRow()">＋ 월 추가</button>
   </div>
 
+
   <!-- 자유노트 -->
   <div class="free-note">
     <span class="free-note-status" id="note-status"></span>
@@ -435,7 +442,9 @@
     }
 
     // ── Supabase Storage 이미지 업로드 ──
+    // blob → 압축 → stock_images 버킷 업로드 → 공개 URL 반환
     async function uploadImage(blob) {
+      // 1) 압축 (1200px, 0.85 — 글자 선명하게 유지)
       const compressed = await new Promise(resolve => {
         const url = URL.createObjectURL(blob);
         const tmp = new Image();
@@ -455,12 +464,14 @@
         tmp.src = url;
       });
 
+      // 2) Storage 업로드
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
       const { data, error } = await db.storage
         .from('stock_images')
         .upload(fileName, compressed, { contentType: 'image/jpeg' });
       if (error) throw error;
 
+      // 3) 공개 URL 반환
       return db.storage.from('stock_images').getPublicUrl(data.path).data.publicUrl;
     }
 
@@ -473,6 +484,7 @@
       } catch(e) { console.warn('Storage 삭제 실패:', e); }
     }
 
+    // ── 구버전 호환용 (base64 재압축 — 혹시 남은 base64 이미지가 있을 경우) ──
     function compressImage(file, maxW = 480) {
       return new Promise(resolve => {
         const img = new Image();
@@ -490,7 +502,7 @@
       });
     }
 
-    // ── 텍스트 렌더링 ──
+    // ── 텍스트 렌더링: [단어]→칩, [img:...]→이미지 ──
     function renderContent(raw) {
       if (!raw) return '';
       const IMG = '[img:';
@@ -503,6 +515,7 @@
         const endIdx = raw.indexOf(']', imgIdx + IMG.length);
         if (endIdx === -1) { result += escapeChip(raw.slice(imgIdx)); break; }
         const token = raw.slice(imgIdx + IMG.length, endIdx);
+        // width|src 형식 파싱 (드래그로 조정된 사이즈 복원)
         const pipeIdx = token.search(/\|(?:data:|https?:)/);
         let imgSrc, wStyle;
         if (pipeIdx > 0) {
@@ -521,15 +534,13 @@
     function escapeChip(text) {
       if (!text) return '';
       const s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const Z = '​';
+      // [!텍스트] → 주황, [?텍스트] → 초록, [텍스트] → 파랑
+      // ​(제로폭 공백)를 칩 양옆에 삽입 → 커서가 칩 바로 옆에 표시됨
+      const Z = '\u200B';
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
-        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<>"]+)/g, (_, url) => {
-          const safe = url.replace(/'/g, '%27');
-          return `<a href="${url}" target="_blank" rel="noopener" class="cell-link" onmousedown="event.stopPropagation();window.open('${safe}','_blank','noopener');return false;">${url}</a>`;
-        });
+        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -541,6 +552,8 @@
     function buildTimeline() {
       const grid = document.getElementById('timelineGrid');
       grid.innerHTML = '';
+      // CSS Grid가 모바일(6열)/데스크탑(12열) 레이아웃을 담당
+      // JS는 단순히 12개의 .tl-col 컬럼만 생성
       MONTHS.forEach((m, i) => {
         const col = document.createElement('div');
         col.className = 'tl-col';
@@ -569,10 +582,15 @@
       else { view.classList.add('placeholder'); }
 
       wrap.appendChild(view);
+
       addChipInput(view);
 
-      view.addEventListener('focus', () => { view.classList.remove('placeholder'); });
+      // 포커스 시 placeholder 제거
+      view.addEventListener('focus', () => {
+        view.classList.remove('placeholder');
+      });
 
+      // 블러 시 저장
       view.addEventListener('blur', async () => {
         const newText = cellDomToRaw(view).replace(/^\n+|\n+$/g, '').trim();
         if (!timelineData[month]) timelineData[month] = { month };
@@ -598,11 +616,11 @@
     }
 
     async function loadTimeline() {
-      buildTimeline();
+      buildTimeline(); // 먼저 빈 상태로 그리기
       const { data, error } = await db.from('timeline').select('*');
       if (error) { console.error(error); return; }
       data.forEach(row => { timelineData[row.month] = row; });
-      buildTimeline();
+      buildTimeline(); // 데이터 받으면 다시 그리기
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -610,7 +628,7 @@
     // ━━━━━━━━━━━━━━━━━━━━━━
     let entries = [];
     const FIELDS = [
-      { key: 'macro',    db: 'macro' },
+      { key: 'macro',     db: 'macro' },
       { key: 'company',  db: 'company' },
       { key: 'topPick',  db: 'top_pick' },
     ];
@@ -622,8 +640,11 @@
 
       entries.forEach(entry => {
         const tr = document.createElement('tr');
+
+        // 접힌 상태 복원
         if (collapsedIds.has(entry.id)) tr.classList.add('collapsed');
 
+        // 월 라벨 (클릭으로 접기/펴기)
         const tdMonth = document.createElement('td');
         tdMonth.className = 'month-label-cell';
 
@@ -649,15 +670,17 @@
           tr.appendChild(td);
         });
 
+
         tbody.appendChild(tr);
       });
     }
 
+    // DOM → raw 텍스트 변환 (칩·이미지 포함)
     function cellDomToRaw(node) {
       let raw = '';
       node.childNodes.forEach(child => {
         if (child.nodeType === Node.TEXT_NODE) {
-          raw += child.textContent.replace(/​/g, '');
+          raw += child.textContent.replace(/​/g, ''); // 제로폭 공백 제거
         } else if (child.nodeType === Node.ELEMENT_NODE) {
           const tag = child.tagName;
           if (tag === 'BR') {
@@ -671,6 +694,7 @@
             else if (child.classList.contains('chip-green'))  raw += '[?' + t + ']';
             else raw += '[' + t + ']';
           } else if (tag === 'IMG') {
+            // 드래그로 바뀐 width도 저장: [img:200px|data:...]
             const w = child.style.width;
             raw += '[img:' + (w ? w + '|' : '') + child.src + ']';
           } else {
@@ -681,6 +705,7 @@
       return raw;
     }
 
+    // 자유노트 등 contentEditable에서 [text]/[!text]/[?text] → 칩 span으로 즉시 변환
     function processChips(container) {
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
       const nodes = [];
@@ -712,6 +737,7 @@
       });
     }
 
+    // ] 입력 시 커서 위치의 [xxx] 패턴을 즉시 칩으로 변환 (실시간)
     function tryConvertChip() {
       const sel = window.getSelection();
       if (!sel?.rangeCount) return;
@@ -746,11 +772,13 @@
       if (afterText) frag.appendChild(document.createTextNode(afterText));
       parent.replaceChild(frag, node);
 
+      // 커서를 칩 바로 뒤로 이동
       const newRange = document.createRange();
       newRange.setStartAfter(zws); newRange.collapse(true);
       sel.removeAllRanges(); sel.addRange(newRange);
     }
 
+    // contentEditable 요소에 ] 입력 감지 → 즉시 칩 변환
     function addChipInput(el) {
       el.addEventListener('input', () => {
         const sel = window.getSelection();
@@ -793,10 +821,12 @@
 
       addChipInput(cell);
 
+      // 이미지 클릭 시 셀 포커스 방지 (이미지 핸들러만 동작)
       cell.addEventListener('mousedown', e => {
         if (e.target.tagName === 'IMG') e.preventDefault();
       });
 
+      // 블러: DOM → raw 변환 후 저장
       cell.addEventListener('blur', async () => {
         const raw = cellDomToRaw(cell);
         cell.dataset.raw = raw;
@@ -805,6 +835,7 @@
         await saveEntry(entry);
       });
 
+      // 이미지 붙여넣기
       cell.addEventListener('paste', async e => {
         const imgItem = [...(e.clipboardData?.items || [])].find(it => it.type.startsWith('image/'));
         if (!imgItem) return;
@@ -903,7 +934,9 @@
     // ━━━━━━━━━━━━━━━━━━━━━━
     //  컬럼 너비 드래그 조절
     // ━━━━━━━━━━━━━━━━━━━━━━
-    const DEFAULT_WIDTHS = [null, 380, 160, 120];
+    // 기본 너비 (픽셀) — localStorage에 저장됨
+    const DEFAULT_WIDTHS = [null, 380, 160, 120]; // col 0 고정, 1~3 조절 가능
+    // 버전 업: 이전 저장값 초기화
     const COL_VER = 'v3';
     if (localStorage.getItem('dashColVer') !== COL_VER) {
       localStorage.removeItem('dashColWidths');
@@ -913,7 +946,9 @@
 
     function applyColWidths() {
       const cols = document.querySelectorAll('#tableColgroup col');
-      [1,2,3].forEach(i => { cols[i].style.width = colWidths[i] + 'px'; });
+      [1,2,3].forEach(i => {
+        cols[i].style.width = colWidths[i] + 'px';
+      });
     }
 
     function initResizers() {
@@ -963,6 +998,7 @@
           study_notes: sn.data  || [],
         };
 
+        // ── 이미지 URL 수집 ──
         const imgUrls = new Set();
         data.study_notes.forEach(n => {
           if (!n.content) return;
@@ -974,6 +1010,7 @@
           });
         });
 
+        // ── URL → base64 변환 ──
         const b64 = {};
         await Promise.all([...imgUrls].map(async url => {
           try {
@@ -987,10 +1024,12 @@
           } catch { b64[url] = url; }
         }));
 
+        // ── HTML 내 img src 치환 ──
         const embedImgs = html =>
           html.replace(/(<img[^>]+src=")([^"]+)(")/g,
             (_, pre, url, post) => pre + (b64[url] || url) + post);
 
+        // ── entries raw → HTML 렌더 (칩 + 이미지) ──
         const renderRaw = raw => {
           if (!raw) return '';
           let html = '', i = 0;
@@ -1021,16 +1060,19 @@
           return html;
         };
 
+        // 타임라인 HTML
         const BK_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
         const tlRows = BK_MONTHS.map((m, i) => {
           const row = data.timeline.find(r => r.month == i+1) || {};
           return `<tr><td>${m}</td><td>${renderRaw(row.quant||'')}</td><td>${renderRaw(row.market||'')}</td></tr>`;
         }).join('');
 
+        // 월별분석 HTML
         const entryRows = data.entries.map(e =>
           `<tr><td>${e.month||''}</td><td>${renderRaw(e.macro||'')}</td><td>${renderRaw(e.company||'')}</td><td>${renderRaw(e.top_pick||'')}</td></tr>`
         ).join('');
 
+        // 노트 HTML (img src → base64 치환)
         const note1 = embedImgs(data.study_notes.find(n=>n.id==='freenote')?.content || '');
         const note2 = embedImgs(data.study_notes.find(n=>n.id==='freenote2')?.content || '');
 
@@ -1106,21 +1148,25 @@ async function doRestore() {
   btn.disabled = true; log.textContent = '복원 중...'; log.style.color = '#888';
   try {
     const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
     log.textContent = '타임라인 복원 중...';
     if (BACKUP.timeline.length) {
       const { error } = await db.from('timeline').upsert(BACKUP.timeline, { onConflict: 'month' });
       if (error) throw error;
     }
+
     log.textContent = '월별분석 복원 중...';
     if (BACKUP.entries.length) {
       const { error } = await db.from('entries').upsert(BACKUP.entries, { onConflict: 'id' });
       if (error) throw error;
     }
+
     log.textContent = '노트 복원 중...';
     if (BACKUP.study_notes.length) {
       const { error } = await db.from('study_notes').upsert(BACKUP.study_notes, { onConflict: 'id' });
       if (error) throw error;
     }
+
     log.textContent = '✓ 복원 완료! 대시보드를 새로고침하면 반영됩니다.';
     log.style.color = '#5a9e4a';
   } catch(e) {
@@ -1136,6 +1182,7 @@ async function doRestore() {
         const filename = '주식대시보드_백업_' + data.exported_at.slice(0,10) + '.html';
         const blob = new Blob([html], { type: 'text/html' });
 
+        // Chrome/Edge: 저장 위치 선택 가능
         if (window.showSaveFilePicker) {
           const fh = await window.showSaveFilePicker({
             suggestedName: filename,
@@ -1145,6 +1192,7 @@ async function doRestore() {
           await writable.write(blob);
           await writable.close();
         } else {
+          // Safari 등: 다운로드 폴더로 저장
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
           a.download = filename;
@@ -1171,8 +1219,11 @@ async function doRestore() {
       }
     }
 
+
+
+
     // ════════════════════════════════════════════════════════
-    //  이미지 시스템
+    //  이미지 시스템 (툴바 + 드래그 리사이즈)
     // ════════════════════════════════════════════════════════
     let _imgToolbar = null, _imgHandle = null, _imgSel = null;
 
@@ -1197,11 +1248,13 @@ async function doRestore() {
       }
     }
 
+    // img 클릭 시 툴바 + 리사이즈 핸들 표시
     function openImgUI(img, onDelete) {
       closeImgUI();
       _imgSel = img;
       img.classList.add('img-selected');
 
+      // 툴바
       const bar = document.createElement('div');
       bar.className = 'img-toolbar';
       _imgToolbar = bar;
@@ -1219,6 +1272,7 @@ async function doRestore() {
       viewBtn.addEventListener('touchend', openLightbox);
       bar.appendChild(viewBtn);
 
+      // 모바일 크기 조절 버튼 (터치 기기에서만 보임)
       const sep0 = document.createElement('span');
       sep0.style.cssText = 'width:1px;background:#444;margin:2px 4px;align-self:stretch;display:inline-block;';
       sep0.className = 'img-size-btn';
@@ -1259,12 +1313,14 @@ async function doRestore() {
       }
       document.body.appendChild(bar);
 
+      // 리사이즈 핸들
       const handle = document.createElement('div');
       handle.className = 'img-resize-handle';
       _imgHandle = handle;
       document.body.appendChild(handle);
       requestAnimationFrame(() => placeImgUI(img));
 
+      // 마우스 리사이즈
       handle.addEventListener('mousedown', ev => {
         ev.preventDefault(); ev.stopPropagation();
         const startX = ev.clientX, startW = img.offsetWidth || 200;
@@ -1285,6 +1341,7 @@ async function doRestore() {
         document.addEventListener('mouseup', onUp);
       });
 
+      // 터치 리사이즈 (아이폰/아이패드)
       handle.addEventListener('touchstart', ev => {
         ev.preventDefault(); ev.stopPropagation();
         const t0 = ev.touches[0];
@@ -1305,16 +1362,17 @@ async function doRestore() {
       }, { passive: false });
     }
 
+    // 이미지에 클릭/탭 핸들러 등록 (마우스 + 터치 모두 지원)
     function registerImg(img, onDelete) {
       img.addEventListener('click', e => { e.stopPropagation(); openImgUI(img, onDelete); });
       img.addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); openImgUI(img, onDelete); });
     }
 
+    // 다른 곳 클릭 → UI 닫기
     document.addEventListener('click', closeImgUI);
 
-
     // ════════════════════════════════════════════════════════
-    //  자유노트
+    //  자유노트 공통 유틸
     // ════════════════════════════════════════════════════════
     function compressBlob(blob, maxPx = 600) {
       return new Promise(resolve => {
@@ -1336,6 +1394,7 @@ async function doRestore() {
       });
     }
 
+    // 이미 있는 data URL을 더 작게 재압축
     function recompressDataUrl(dataUrl, maxPx, quality) {
       return new Promise(resolve => {
         const tmp = new Image();
@@ -1350,17 +1409,19 @@ async function doRestore() {
           c.getContext('2d').drawImage(tmp, 0, 0, w, h);
           resolve(c.toDataURL('image/jpeg', quality));
         };
-        tmp.onerror = () => resolve(dataUrl);
+        tmp.onerror = () => resolve(dataUrl); // 실패 시 원본 유지
         tmp.src = dataUrl;
       });
     }
 
+    // 커서 위치에 이미지 삽입, 이미지 뒤에 커서 유지
     function insertImgAtCursor(imgEl, area) {
       const sel = window.getSelection();
       if (sel?.rangeCount) {
         const r = sel.getRangeAt(0);
         r.deleteContents();
-        const after = document.createTextNode('​');
+        // 이미지 뒤에 커서를 고정할 빈 텍스트 노드
+        const after = document.createTextNode('\u200B');
         r.insertNode(after);
         r.insertNode(imgEl);
         r.setStartAfter(after);
@@ -1372,12 +1433,16 @@ async function doRestore() {
       }
     }
 
+    // 노트 로드 후 기존 이미지에 핸들러 재연결
     function reattachNoteImgs(area) {
       area.querySelectorAll('img').forEach(img => {
         registerImg(img, i => { deleteStorageImg(i.src); i.remove(); area.dispatchEvent(new Event('blur')); });
       });
     }
 
+    // ════════════════════════════════════════════════════════
+    //  자유노트 초기화 (noteId, statusId, supabaseId)
+    // ════════════════════════════════════════════════════════
     function initNote(noteId, statusId, supabaseId) {
       const area = document.getElementById(noteId);
       const sts  = document.getElementById(statusId);
@@ -1390,7 +1455,8 @@ async function doRestore() {
 
       async function save() {
         showStatus('saving', '저장 중...');
-        processChips(area);
+        processChips(area); // [text] → 칩 span 변환
+
         try {
           const { error } = await db.from('study_notes').upsert({ id: supabaseId, content: area.innerHTML, updated_at: new Date().toISOString() });
           if (error) throw error;
@@ -1411,6 +1477,7 @@ async function doRestore() {
 
       addChipInput(area);
 
+      // Enter → <br> (Chrome의 <div> 자동생성 방지 → float 텍스트 흐름 유지)
       area.addEventListener('keydown', e => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -1446,8 +1513,6 @@ async function doRestore() {
 
       load();
     }
-
-
 
     // 자유노트 두 개 초기화
     initNote('free-note',  'note-status',  'freenote');
