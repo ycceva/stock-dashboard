@@ -281,65 +281,6 @@
       .col-resizer { display: none; }
     }
 
-    /* ── 매크로 타임스탬프 ── */
-    .macro-timestamp {
-      font-size: 9px;
-      color: #555;
-      font-weight: 400;
-      margin-left: 6px;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-
-    /* ── 매크로 텍스트 섹션 ── */
-    .macro-panel {
-      background: #1a1a1a;
-      border: 0.5px solid #2a2a2a;
-      border-radius: 6px;
-      padding: 12px 14px;
-      margin-bottom: 18px;
-    }
-    .macro-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-    .macro-stat {
-      background: #222;
-      border-radius: 4px;
-      padding: 5px 10px;
-      font-size: 11px;
-      color: #888;
-    }
-    .macro-stat span {
-      color: #c8763a;
-      font-weight: 600;
-      margin-left: 4px;
-    }
-    .macro-item {
-      margin-bottom: 8px;
-      line-height: 1.6;
-      font-size: 11px;
-      color: #888;
-    }
-    .macro-item strong {
-      color: #c8763a;
-      font-weight: 600;
-    }
-    .macro-divider {
-      border: none;
-      border-top: 0.5px solid #252525;
-      margin: 10px 0;
-    }
-    .macro-summary {
-      font-size: 11px;
-      color: #888;
-      line-height: 1.65;
-    }
-    .macro-summary strong {
-      color: #c8763a;
-    }
 
     /* ── 자유노트 ── */
     .free-note {
@@ -415,29 +356,6 @@
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="backup-btn" onclick="backupAll()">⬇ 백업</button>
       <span class="save-status" id="saveStatus">● 로딩 중...</span>
-    </div>
-  </div>
-
-  <!-- 매크로 -->
-  <div class="section">
-    <div class="section-title">매크로 <span class="macro-timestamp" id="macroTimestamp">로딩 중...</span></div>
-    <div class="macro-panel">
-      <div class="macro-row">
-        <div class="macro-stat">원/달러<span id="mv-krw">—</span></div>
-        <div class="macro-stat">유가 (WTI)<span id="mv-oil">—</span></div>
-        <div class="macro-stat">VIX<span id="mv-vix">—</span></div>
-        <div class="macro-stat">코스피<span id="mv-kospi">—</span></div>
-      </div>
-      <div class="macro-item">
-        <strong>미국 10년 금리 <span id="mv-tnx">—</span></strong> — 7주 최저. 인플레이션 우려 완화 + Fed 추가 인상 가능성 감소로 채권 강세 흐름. 4.4% 저항선 하향 돌파.
-      </div>
-      <div class="macro-item">
-        <strong>하이일드 스프레드 2.78%</strong> — 역사적 타이트 수준 (평균 400~500bp). 신용시장은 경기침체 없다는 쪽에 베팅 중. 스프레드가 좁아 리스크 대비 수익 낮은 구간으로 경계 필요.
-      </div>
-      <hr class="macro-divider">
-      <div class="macro-summary">
-        <strong>종합</strong> — 금리 하락 + VIX 안정 + 유가 급락(이란 협상 진전) = 단기 리스크온. 다만 하이일드 스프레드가 이미 극단적으로 좁아 추가 크레딧 랠리 여지는 제한적.
-      </div>
     </div>
   </div>
 
@@ -600,7 +518,8 @@
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
-        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z);
+        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
+        .replace(/(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#5a8fc4;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">$1</a>');
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -1235,7 +1154,6 @@ async function doRestore() {
       initResizers();
       try {
         await Promise.all([loadTimeline(), loadEntries()]);
-        loadMacroData();
         setStatus('saved');
       } catch(e) {
         console.error(e);
@@ -1519,51 +1437,6 @@ async function doRestore() {
     }
 
 
-    // ── 매크로 실시간 데이터 ──
-    async function loadMacroData() {
-      const BASE = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-      const FALLBACK = {
-        'mv-krw':   '1,534원',
-        'mv-oil':   '$69',
-        'mv-vix':   '18.41',
-        'mv-kospi': '8,238',
-        'mv-tnx':   '4.38%',
-      };
-      const symbols = [
-        { sym: '^TNX',     id: 'mv-tnx',   fmt: v => v.toFixed(2) + '%' },
-        { sym: 'USDKRW=X', id: 'mv-krw',  fmt: v => Math.round(v).toLocaleString() + '원' },
-        { sym: 'CL=F',     id: 'mv-oil',   fmt: v => '$' + v.toFixed(0) },
-        { sym: '^VIX',     id: 'mv-vix',   fmt: v => v.toFixed(2) },
-        { sym: '^KS11',    id: 'mv-kospi', fmt: v => Math.round(v).toLocaleString() },
-      ];
-      const ts = document.getElementById('macroTimestamp');
-      let ok = 0;
-      await Promise.all(symbols.map(async s => {
-        try {
-          const res = await fetch(BASE + encodeURIComponent(s.sym) + '?interval=1d&range=5d', { cache: 'no-store' });
-          if (!res.ok) throw new Error(res.status);
-          const j = await res.json();
-          const price = j.chart.result[0].meta.regularMarketPrice;
-          document.getElementById(s.id).textContent = s.fmt(price);
-          ok++;
-        } catch(e) {
-          document.getElementById(s.id).textContent = FALLBACK[s.id] || '—';
-        }
-      }));
-      const now = new Date();
-      const kstStr = now.toLocaleString('ko-KR', {
-        month: 'numeric', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'Asia/Seoul'
-      });
-      if (ok > 0) {
-        ts.textContent = kstStr + ' 기준';
-        ts.style.color = '#5a9e4a';
-      } else {
-        ts.textContent = '실시간 불가 — 6/26 고정값';
-        ts.style.color = '#666';
-      }
-    }
 
     // 자유노트 두 개 초기화
     initNote('free-note',  'note-status',  'freenote');
