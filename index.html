@@ -244,6 +244,14 @@
     .chip-orange { background: #2e1a08; color: #e8924a; }
     .chip-green  { background: #0e2414; color: #52c46e; }
 
+    /* ── URL 링크 ── */
+    .cell-link {
+      color: #5a8fc4;
+      text-decoration: underline;
+      cursor: pointer;
+      word-break: break-all;
+    }
+
     /* ── 이미지 라이트박스 ── */
     .lightbox {
       display: none;
@@ -540,7 +548,11 @@
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
-        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z);
+        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
+        .replace(/(https?:\/\/[^\s<>"\u200B\u200B]+)/g, (_, url) => {
+          const safe = url.replace(/"/g, '&quot;');
+          return `<span class="cell-link" contenteditable="false" data-href="${safe}">${safe}</span>`;
+        });
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -1368,8 +1380,30 @@ async function doRestore() {
       img.addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); openImgUI(img, onDelete); });
     }
 
-    // 다른 곳 클릭 → UI 닫기
-    document.addEventListener('click', closeImgUI);
+    // 다른 곳 클릭 → UI 닫기 / URL 링크 열기
+    document.addEventListener('click', e => {
+      const link = e.target.closest('.cell-link');
+      if (link && link.dataset.href) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(link.dataset.href, '_blank', 'noopener');
+        return;
+      }
+      closeImgUI();
+    });
+
+    // ── Safari iPad/Mac blur 누락 버그 수정 ──
+    // contenteditable 바깥 클릭 시 blur가 안 터지는 문제 → 강제 blur
+    document.addEventListener('mousedown', e => {
+      const active = document.activeElement;
+      if (!active) return;
+      if (!active.classList.contains('cell-view') &&
+          !active.classList.contains('tl-view') &&
+          !active.classList.contains('free-note-area')) return;
+      if (active.contains(e.target)) return;
+      if (e.target.closest('.img-toolbar')) return;
+      active.blur();
+    });
 
     // ════════════════════════════════════════════════════════
     //  자유노트 공통 유틸
