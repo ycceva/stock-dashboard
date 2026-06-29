@@ -41,7 +41,6 @@
       padding: 3px 9px; cursor: pointer;
     }
     .backup-btn:hover { border-color: #555; color: #aaa; }
-
     /* ── Section ── */
     .section { margin-bottom: 18px; }
     .section-title {
@@ -291,6 +290,31 @@
     }
 
 
+    /* ── 매크로 차트 그리드 ── */
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 640px) {
+      .macro-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .macro-card {
+      background: #1a1a1a;
+      border: 0.5px solid #252525;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .macro-card-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: #555;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 6px 8px 2px;
+    }
+
     /* ── 자유노트 ── */
     .free-note {
       background: #161616;
@@ -367,8 +391,115 @@
   <div class="header">
     <h1>주식 매크로 대시보드</h1>
     <div style="display:flex;align-items:center;gap:10px;">
-      <button class="backup-btn" onclick="backupAll()">⬇ 백업</button>
+<button class="backup-btn" onclick="backupAll()">⬇ 백업</button>
       <span class="save-status" id="saveStatus">● 로딩 중...</span>
+    </div>
+  </div>
+
+  <!-- 매크로 지표 차트 -->
+  <div class="section">
+    <div class="section-title">매크로 지표</div>
+    <div class="macro-grid">
+
+      <!-- 미국 10년 금리 -->
+      <div class="macro-card">
+        <div class="macro-card-label">미국 10년 금리</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"TVC:US10Y","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(41,98,255,1)","underLineColor":"rgba(41,98,255,0.12)","underLineBottomColor":"rgba(41,98,255,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 달러인덱스 -->
+      <div class="macro-card">
+        <div class="macro-card-label">달러인덱스 (DXY)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"TVC:DXY","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(41,98,255,1)","underLineColor":"rgba(41,98,255,0.12)","underLineBottomColor":"rgba(41,98,255,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 유가 WTI -->
+      <div class="macro-card">
+        <div class="macro-card-label">유가 (WTI)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"TVC:USOIL","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(251,192,45,1)","underLineColor":"rgba(251,192,45,0.12)","underLineBottomColor":"rgba(251,192,45,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- VIX -->
+      <div class="macro-card">
+        <div class="macro-card-label">VIX (공포지수)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"TVC:VIX","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(229,115,115,1)","underLineColor":"rgba(229,115,115,0.12)","underLineBottomColor":"rgba(229,115,115,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- S&P 500 -->
+      <div class="macro-card">
+        <div class="macro-card-label">S&amp;P 500</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"SP:SPX","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(82,196,110,1)","underLineColor":"rgba(82,196,110,0.12)","underLineBottomColor":"rgba(82,196,110,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 하이일드 스프레드 -->
+      <div class="macro-card">
+        <div class="macro-card-label">하이일드 스프레드</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"FRED:BAMLH0A0HYM2","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(255,152,0,1)","underLineColor":"rgba(255,152,0,0.12)","underLineBottomColor":"rgba(255,152,0,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 코스피 -->
+      <div class="macro-card">
+        <div class="macro-card-label">코스피 (KOSPI)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"KRX:KOSPI","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(130,177,255,1)","underLineColor":"rgba(130,177,255,0.12)","underLineBottomColor":"rgba(130,177,255,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 필라델피아 반도체지수 -->
+      <div class="macro-card">
+        <div class="macro-card-label">필라델피아 반도체 (SOX)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"PHLX:SOX","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(171,71,188,1)","underLineColor":"rgba(171,71,188,0.12)","underLineBottomColor":"rgba(171,71,188,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
+      <!-- 미국 CPI -->
+      <div class="macro-card">
+        <div class="macro-card-label">미국 CPI (인플레이션)</div>
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+          {"symbol":"FRED:CPIAUCSL","width":"100%","height":200,"locale":"en","dateRange":"3M","colorTheme":"dark","trendLineColor":"rgba(229,115,115,1)","underLineColor":"rgba(229,115,115,0.12)","underLineBottomColor":"rgba(229,115,115,0)","isTransparent":true,"autosize":false}
+          </script>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -540,8 +671,7 @@
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
-        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z)
-        .replace(/(https?:\/\/[^\s<&]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" contenteditable="false" style="color:#4a8ac4;word-break:break-all;text-decoration:underline;cursor:pointer;">$1</a>' + Z);
+        .replace(/\[([^\]\n]{1,60})\]/g,   '<span class="chip"             contenteditable="false">$1</span>' + Z);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -698,50 +828,12 @@
             // 드래그로 바뀐 width도 저장: [img:200px|data:...]
             const w = child.style.width;
             raw += '[img:' + (w ? w + '|' : '') + child.src + ']';
-          } else if (tag === 'A') {
-            // 링크 → href URL 그대로 저장
-            raw += child.href || child.textContent;
           } else {
             raw += cellDomToRaw(child);
           }
         }
       });
       return raw;
-    }
-
-    // 자유노트에서 URL 텍스트 → 클릭 가능한 링크로 자동 변환
-    function processLinks(container) {
-      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-      const nodes = [];
-      let n;
-      while ((n = walker.nextNode())) {
-        if (n.parentElement?.tagName !== 'A' &&
-            !n.parentElement?.classList.contains('chip') &&
-            /https?:\/\//.test(n.textContent)) nodes.push(n);
-      }
-      nodes.forEach(textNode => {
-        const text = textNode.textContent;
-        const re = /(https?:\/\/[^\s]+)/g;
-        let lastIdx = 0, m, hasLink = false;
-        const frag = document.createDocumentFragment();
-        while ((m = re.exec(text)) !== null) {
-          if (m.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
-          const a = document.createElement('a');
-          a.href = m[1];
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.contentEditable = 'false';
-          a.style.cssText = 'color:#4a8ac4;word-break:break-all;text-decoration:underline;cursor:pointer;';
-          a.textContent = m[1];
-          frag.appendChild(a);
-          frag.appendChild(document.createTextNode('​'));
-          lastIdx = m.index + m[0].length;
-          hasLink = true;
-        }
-        if (!hasLink) return;
-        if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
-        textNode.parentNode.replaceChild(frag, textNode);
-      });
     }
 
     // 자유노트 등 contentEditable에서 [text]/[!text]/[?text] → 칩 span으로 즉시 변환
@@ -1495,7 +1587,6 @@ async function doRestore() {
       async function save() {
         showStatus('saving', '저장 중...');
         processChips(area); // [text] → 칩 span 변환
-        processLinks(area); // URL → 클릭 가능한 링크 변환
 
         try {
           const { error } = await db.from('study_notes').upsert({ id: supabaseId, content: area.innerHTML, updated_at: new Date().toISOString() });
@@ -1558,22 +1649,8 @@ async function doRestore() {
     initNote('free-note',  'note-status',  'freenote');
     initNote('free-note2', 'note-status2', 'freenote2');
 
-    // ─────────────────────────────────────────────────────────
-    // 링크 탭 처리: iOS Safari에서 contenteditable 내부 <a> 링크가
-    // 클릭되지 않는 문제를 pointerdown 캡처 페이즈로 해결
-    // ─────────────────────────────────────────────────────────
-    document.addEventListener('pointerdown', function(e) {
-      const a = e.target.closest('a[href]');
-      if (!a) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const url = a.href;
-      // window.open이 막히면(iOS PWA 등) location.href 사용
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!w) { location.href = url; }
-    }, true);
-
     init();
+
   </script>
 </body>
 </html>
