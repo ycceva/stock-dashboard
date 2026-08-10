@@ -53,72 +53,6 @@
       margin-bottom: 6px;
     }
 
-    /* ── Timeline ── */
-    .timeline-wrap { width: 100%; }
-    .timeline-grid {
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      grid-auto-rows: auto; /* 행 높이는 컨텐츠에 맞게 자동 */
-      width: 100%;
-      border: 1px solid #333;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-
-    /* 모바일: 6열 → 6개월씩 두 줄 */
-    @media (max-width: 640px) {
-      .timeline-grid {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-      }
-      /* 7~12월 상단 구분선 */
-      .tl-col:nth-child(n+7) .tl-quant {
-        border-top: 2px solid #3d3d3d;
-      }
-    }
-
-    /* 각 월 컬럼: subgrid로 부모 행 공유 → 라벨이 모든 컬럼에서 같은 높이 유지 */
-    .tl-col {
-      display: grid;
-      grid-template-rows: subgrid;
-      grid-row: span 3;
-      border-right: 0.5px solid #2e2e2e;
-    }
-    .tl-col:nth-child(6n) { border-right: none; }
-    @media (min-width: 641px) {
-      .tl-col:nth-child(6n) { border-right: 0.5px solid #2e2e2e; }
-      .tl-col:last-child    { border-right: none; }
-    }
-    @media (max-width: 640px) {
-      .tl-col:nth-child(12) { border-right: none; }
-    }
-
-    .tl-quant,
-    .tl-market {
-      padding: 5px 6px;
-      font-size: 12px;
-      line-height: 1.55;
-      min-height: 44px;
-      cursor: text;
-      color: #c8c8c8;
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-    .tl-quant  { background: #1d1d1d; border-bottom: 0.5px solid #2d2d2d; }
-    .tl-market { background: #1a1a1a; }
-
-    .tl-label {
-      height: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 600;
-      color: #e0e0e0;
-      background: #2a2a2a;
-      border-top: 0.5px solid #353535;
-      border-bottom: 0.5px solid #353535;
-    }
-
     /* ── Table ── */
     .month-table {
       width: 100%;
@@ -207,7 +141,7 @@
     .cell-view {
       padding: 6px 8px;
       min-height: 58px;
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.6;
       cursor: text;
       color: #c8c8c8;
@@ -217,21 +151,6 @@
     }
     .cell-view:focus { outline: none; }
     .cell-view.placeholder::before { content: '입력'; color: #383838; pointer-events: none; display: block; }
-
-    .tl-view {
-      min-height: 44px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      outline: none;
-    }
-    .tl-view:focus { background: rgba(58,90,122,0.08); }
-    .tl-view.placeholder::before {
-      content: attr(data-ph);
-      color: #4a4a4a;
-      font-size: 11px;
-      pointer-events: none;
-      display: block;
-    }
 
     /* ── Chips ── */
     .chip {
@@ -310,7 +229,7 @@
     }
     .free-note-area {
       min-height: 60px;
-      font-size: 15px; color: #bbb; line-height: 1.6;
+      font-size: 14px; color: #bbb; line-height: 1.6;
       outline: none;
       width: 100%; cursor: text;
       white-space: pre-wrap; word-break: break-word;
@@ -380,14 +299,6 @@
     </div>
   </div>
 
-  <!-- 연간 타임라인 -->
-  <div class="section">
-    <div class="section-title">연간 일정</div>
-    <div class="timeline-wrap">
-      <div class="timeline-grid" id="timelineGrid"></div>
-    </div>
-  </div>
-
   <!-- 라이트박스 -->
   <div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('on')">
     <img id="lightboxImg" src="">
@@ -407,7 +318,7 @@
         <colgroup id="tableColgroup">
           <col style="width:44px">
           <col>
-          <col>
+          <col style="width:15%">
         </colgroup>
         <thead>
           <tr>
@@ -551,86 +462,6 @@
           const safe = url.replace(/'/g, '%27').replace(/"/g, '&quot;');
           return `<span class="cell-link" contenteditable="false" onclick="event.stopPropagation();event.preventDefault();window.open('${safe}','_blank','noopener')">${url}</span>`;
         });
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━
-    //  타임라인
-    // ━━━━━━━━━━━━━━━━━━━━━━
-    const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-    let timelineData = {};
-
-    function buildTimeline() {
-      const grid = document.getElementById('timelineGrid');
-      grid.innerHTML = '';
-      // CSS Grid가 모바일(6열)/데스크탑(12열) 레이아웃을 담당
-      // JS는 단순히 12개의 .tl-col 컬럼만 생성
-      MONTHS.forEach((m, i) => {
-        const col = document.createElement('div');
-        col.className = 'tl-col';
-        col.appendChild(makeTlCell(i + 1, 'quant', 'tl-quant', '퀀트일정'));
-        const label = document.createElement('div');
-        label.className = 'tl-label';
-        label.textContent = m;
-        col.appendChild(label);
-        col.appendChild(makeTlCell(i + 1, 'market', 'tl-market', '시장메모'));
-        grid.appendChild(col);
-      });
-    }
-
-    function makeTlCell(month, field, cls, placeholder) {
-      const wrap = document.createElement('div');
-      wrap.className = cls;
-
-      const view = document.createElement('div');
-      view.className = 'tl-view';
-      view.contentEditable = 'true';
-      view.spellcheck = false;
-      view.dataset.ph = placeholder;
-
-      const text = (timelineData[month] || {})[field] || '';
-      if (text) { view.innerHTML = renderContent(text); }
-      else { view.classList.add('placeholder'); }
-
-      wrap.appendChild(view);
-
-      addChipInput(view);
-
-      // 포커스 시 placeholder 제거
-      view.addEventListener('focus', () => {
-        view.classList.remove('placeholder');
-      });
-
-      // 블러 시 저장
-      view.addEventListener('blur', async () => {
-        const newText = cellDomToRaw(view).replace(/^\n+|\n+$/g, '').trim();
-        if (!timelineData[month]) timelineData[month] = { month };
-        timelineData[month][field] = newText;
-        if (newText) {
-          view.innerHTML = renderContent(newText);
-          view.classList.remove('placeholder');
-        } else {
-          view.innerHTML = '';
-          view.classList.add('placeholder');
-        }
-        await saveTlMonth(month);
-      });
-
-      return wrap;
-    }
-
-    async function saveTlMonth(month) {
-      setStatus('saving');
-      const row = { month, quant: (timelineData[month] || {}).quant || '', market: (timelineData[month] || {}).market || '' };
-      const { error } = await db.from('timeline').upsert(row, { onConflict: 'month' });
-      error ? setStatus('error') : setStatus('saved');
-    }
-
-    async function loadTimeline() {
-      buildTimeline(); // 먼저 빈 상태로 그리기
-      const { data, error } = await db.from('timeline').select('*');
-      if (error) { console.error(error); return; }
-      data.forEach(row => { timelineData[row.month] = row; });
-      buildTimeline(); // 데이터 받으면 다시 그리기
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━
@@ -1273,7 +1104,7 @@ async function doRestore() {
       applyColWidths();
       initResizers();
       try {
-        await Promise.all([loadTimeline(), loadEntries()]);
+        await loadEntries();
         setStatus('saved');
       } catch(e) {
         console.error(e);
