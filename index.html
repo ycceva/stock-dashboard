@@ -287,14 +287,54 @@
     .free-note-status { font-size:10px; color:#444; display:block; text-align:right; min-height:14px; margin-bottom:2px; transition:color 0.2s; }
     .free-note-status.saving { color:#f0a500; }
     .free-note-status.saved  { color:#4ade80; }
+
+    /* ── 로그인 ── */
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 10001;
+      background: #141414;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .auth-overlay.on { display: flex; }
+    .auth-box {
+      background: #1e1e1e; border: 0.5px solid #333;
+      border-radius: 10px; padding: 16px;
+      width: 100%; max-width: 320px;
+    }
+    .auth-title { font-size: 14px; color: #ccc; margin-bottom: 10px; }
+    .auth-input {
+      width: 100%; font-size: 16px; font-family: inherit;
+      background: #141414; color: #eee;
+      border: 0.5px solid #333; border-radius: 6px;
+      padding: 8px 10px; outline: none;
+    }
+    .auth-input:focus { border-color: #4a8ac4; }
+    .auth-err { font-size: 12px; color: #ff8a8a; margin-top: 8px; min-height: 14px; }
+    .auth-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
   </style>
 </head>
 <body>
+
+  <!-- 로그인 화면 -->
+  <div class="auth-overlay" id="authView">
+    <div class="auth-box">
+      <div class="auth-title">로그인이 필요합니다</div>
+      <input type="email" id="authEmail" class="auth-input" placeholder="이메일" autocomplete="email" spellcheck="false">
+      <input type="password" id="authPassword" class="auth-input" placeholder="비밀번호" autocomplete="current-password" style="margin-top:8px;">
+      <div class="auth-err" id="authErr"></div>
+      <div class="auth-actions">
+        <button class="backup-btn" onclick="loginWithPassword()">로그인</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appRoot" style="display:none">
 
   <div class="header">
     <h1>주식 매크로 대시보드</h1>
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="backup-btn" onclick="backupAll()">⬇ 백업</button>
+      <button class="backup-btn" id="logoutBtn" onclick="logout()" style="display:none">로그아웃</button>
       <span class="save-status" id="saveStatus">● 로딩 중...</span>
     </div>
   </div>
@@ -339,6 +379,8 @@
     <span class="free-note-status" id="note-status"></span>
     <div class="free-note-area" id="free-note" contenteditable="true"></div>
   </div>
+
+  </div><!-- /appRoot -->
 
   <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1042,6 +1084,12 @@ async function doRestore() {
   try {
     const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+    const email = prompt('복원하려면 로그인이 필요합니다. 이메일:');
+    const password = email ? prompt('비밀번호:') : null;
+    if (!email || !password) throw new Error('로그인 정보가 없어 취소했습니다.');
+    const { error: authError } = await db.auth.signInWithPassword({ email, password });
+    if (authError) throw authError;
+
     log.textContent = '타임라인 복원 중...';
     if (BACKUP.timeline.length) {
       const { error } = await db.from('timeline').upsert(BACKUP.timeline, { onConflict: 'month' });
@@ -1474,11 +1522,73 @@ async function doRestore() {
       load();
     }
 
-    // 자유노트 두 개 초기화
-    initNote('free-note',  'note-status',  'freenote');
-    initNote('free-note2', 'note-status2', 'freenote2');
+    // ════════════════════════════════════════════════════════
+    //  로그인 (이메일 + 비밀번호)
+    //  로그인 전에는 대시보드를 숨기고 DB 요청도 보내지 않는다.
+    //  세션은 Supabase가 브라우저에 저장하고 자동 갱신 → 기기마다 1회만 로그인.
+    // ════════════════════════════════════════════════════════
+    function startApp() {
+      // 자유노트 두 개 초기화
+      initNote('free-note',  'note-status',  'freenote');
+      initNote('free-note2', 'note-status2', 'freenote2');
+      init();
+    }
 
-    init();
+    // 이벤트 리스너 중복 방지: 앱은 페이지당 한 번만 시작한다.
+    let appStarted = false;
+    function handleAuthState(session) {
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (session) {
+        document.getElementById('authView').classList.remove('on');
+        document.getElementById('appRoot').style.display = '';
+        logoutBtn.style.display = '';
+        if (!appStarted) {
+          appStarted = true;
+          // onAuthStateChange 콜백 안에서 바로 DB를 부르면 막힐 수 있어 한 틱 뒤에 시작
+          setTimeout(startApp, 0);
+        }
+      } else {
+        // 로그아웃·세션 만료: 시작된 앱은 새로고침으로 깨끗하게 되돌린다.
+        if (appStarted) { location.reload(); return; }
+        document.getElementById('appRoot').style.display = 'none';
+        document.getElementById('authErr').textContent = '';
+        document.getElementById('authView').classList.add('on');
+      }
+    }
+
+    async function checkAuthAndInit() {
+      const { data: { session } } = await db.auth.getSession();
+      handleAuthState(session);
+      db.auth.onAuthStateChange((_event, newSession) => handleAuthState(newSession));
+    }
+
+    async function loginWithPassword() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      const errEl = document.getElementById('authErr');
+      if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+      errEl.textContent = '로그인 중...';
+      try {
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) { errEl.textContent = '로그인 실패: 이메일 또는 비밀번호를 확인해주세요.'; return; }
+        errEl.textContent = '';
+        // 성공하면 onAuthStateChange가 화면 전환을 처리한다.
+      } catch (e) { errEl.textContent = '로그인 실패: ' + (e.message || e); }
+    }
+
+    async function logout() {
+      if (!confirm('로그아웃 하시겠어요?')) return;
+      await db.auth.signOut();
+    }
+
+    document.getElementById('authPassword').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); loginWithPassword(); }
+    });
+    document.getElementById('authEmail').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('authPassword').focus(); }
+    });
+
+    checkAuthAndInit();
   </script>
 </body>
 </html>
