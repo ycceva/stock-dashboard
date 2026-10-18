@@ -218,6 +218,45 @@
     }
 
 
+    /* ── 연간 캘린더 ── */
+    .cal-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 0.5px solid #2e2e2e;
+      border-radius: 6px;
+      background: #1c1c1c;
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(122px, 1fr));
+      min-width: 1464px;
+    }
+    .cal-cell { border-right: 0.5px solid #242424; min-width: 0; padding-bottom: 6px; }
+    .cal-cell:last-child { border-right: none; }
+    .cal-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      background: #252525; padding: 6px 8px; margin-bottom: 4px;
+      font-size: 13px; font-weight: 500; color: #e0e0e0;
+      border-bottom: 0.5px solid #2e2e2e;
+    }
+    .cal-head small { font-size: 11px; font-weight: 400; color: #666; }
+    .cal-cell.now .cal-head { background: #1a3050; color: #9cc8f0; }
+    .cal-cell.now .cal-head small { color: #6a9fd8; }
+    .cal-ev {
+      font-size: 12px; line-height: 1.45; color: #c8c8c8;
+      margin: 3px 6px 3px 6px; padding: 1px 0 1px 6px;
+      border-left: 2px solid #444; word-break: keep-all;
+    }
+    .cal-ev .d { font-weight: 500; margin-right: 4px; font-variant-numeric: tabular-nums; }
+    .cal-ev.m { border-left-color: #3a6a9a; } .cal-ev.m .d { color: #7ab0e0; }
+    .cal-ev.x { border-left-color: #b8692e; } .cal-ev.x .d { color: #e8924a; }
+    .cal-ev.e { border-left-color: #2f8a4a; } .cal-ev.e .d { color: #52c46e; }
+    .cal-ev.f { border-left-color: #7a5aa8; } .cal-ev.f .d { color: #b48ae0; }
+    .cal-ev.past { opacity: 0.38; }
+    .cal-ev.today { background: #262626; font-weight: 600; }
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; color: #666; }
+    .cal-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
     /* ── 자유노트 ── */
     .free-note {
       background: #161616;
@@ -342,6 +381,19 @@
   <!-- 라이트박스 -->
   <div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('on')">
     <img id="lightboxImg" src="">
+  </div>
+
+  <!-- 연간 캘린더: 이번 달부터 12개월 -->
+  <div class="section">
+    <div class="section-title">연간 캘린더</div>
+    <div class="cal-wrap"><div class="cal-grid" id="calGrid"></div></div>
+    <div class="cal-legend">
+      <span><i style="background:#3a6a9a"></i>매크로·통화</span>
+      <span><i style="background:#b8692e"></i>만기·리밸런싱</span>
+      <span><i style="background:#2f8a4a"></i>실적·기업행사</span>
+      <span><i style="background:#7a5aa8"></i>펀드·휴장·기타</span>
+      <span>~ 표시는 예상(미확정) 일정 · 흐린 글씨는 지난 일정</span>
+    </div>
   </div>
 
   <!-- 자유노트2 -->
@@ -495,7 +547,7 @@
       const s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       // [!텍스트] → 주황, [?텍스트] → 초록, [텍스트] → 파랑
       // ​(제로폭 공백)를 칩 양옆에 삽입 → 커서가 칩 바로 옆에 표시됨
-      const Z = '\u200B';
+      const Z = '​';
       return s
         .replace(/\[!([^\]\n]{1,60})\]/g, '<span class="chip chip-orange" contenteditable="false">$1</span>' + Z)
         .replace(/\[\?([^\]\n]{1,60})\]/g, '<span class="chip chip-green"  contenteditable="false">$1</span>' + Z)
@@ -1147,6 +1199,205 @@ async function doRestore() {
       }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━
+    //  연간 캘린더 (이번 달부터 12개월, 달이 바뀌면 자동으로 밀림)
+    //  확정 일정(BLS·BEA·연준·한은)은 CAL_FIXED, 규칙으로 계산되는 일정은 calRuleEvents,
+    //  매년 반복되지만 날짜가 미확정인 일정은 CAL_MISC(a:1 → "~" 예상 표시)
+    //  CPI·PPI·FOMC는 2027-12까지, 한은 금통위는 2026년까지만 확정 데이터가 있음
+    // ━━━━━━━━━━━━━━━━━━━━━━
+    const CAL_PAD = n => String(n).padStart(2, '0');
+    const calKey = (y, m, d) => `${y}-${CAL_PAD(m + 1)}-${CAL_PAD(d)}`; // m: 0~11
+    const nthWeekday = (y, m, wd, n) => 1 + ((wd - new Date(y, m, 1).getDay() + 7) % 7) + (n - 1) * 7;
+    const lastWeekday = (y, m, wd) => {
+      const last = new Date(y, m + 1, 0);
+      return last.getDate() - ((last.getDay() - wd + 7) % 7);
+    };
+
+    // 미국 증시 휴장일 (옵션 만기·월말 영업일 계산용)
+    const US_HOL = new Set([
+      '2026-09-07', '2026-11-26', '2026-12-25',
+      '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18',
+      '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+    ]);
+    const isBiz = (y, m, d) => {
+      const wd = new Date(y, m, d).getDay();
+      return wd !== 0 && wd !== 6 && !US_HOL.has(calKey(y, m, d));
+    };
+    const lastBizDay = (y, m) => {
+      let d = new Date(y, m + 1, 0).getDate();
+      while (!isBiz(y, m, d)) d--;
+      return d;
+    };
+    const usExpiry = (y, m) => {
+      let d = nthWeekday(y, m, 5, 3);           // 매월 셋째 금요일
+      if (US_HOL.has(calKey(y, m, d))) d--;     // 휴장이면 전날 (예: 2026-06-18 준틴스)
+      return d;
+    };
+
+    const CAL_FIXED = [];
+    const addFx = (d, t, c, o = {}) => CAL_FIXED.push({ d, t, c, ...o });
+
+    // 美 CPI / PPI / 고용보고서 / PCE — BLS·BEA 공식 일정
+    ['2026-10-14','2026-11-10','2026-12-10','2027-01-13','2027-02-11','2027-03-10','2027-04-13','2027-05-12',
+     '2027-06-10','2027-07-14','2027-08-11','2027-09-14','2027-10-14','2027-11-10','2027-12-10']
+      .forEach(d => addFx(d, '美 CPI', 'm'));
+    ['2026-10-15','2026-11-13','2026-12-15','2027-01-14','2027-02-12','2027-03-12','2027-04-14','2027-05-13',
+     '2027-06-11','2027-07-15','2027-08-10','2027-09-10','2027-10-15','2027-11-12','2027-12-15']
+      .forEach(d => addFx(d, '美 PPI', 'm'));
+    ['2026-10-02','2026-11-06','2026-12-04','2027-01-08','2027-02-05','2027-03-05','2027-04-02','2027-05-07',
+     '2027-06-04','2027-07-02','2027-08-06','2027-09-03','2027-10-08','2027-11-05','2027-12-03']
+      .forEach(d => addFx(d, '美 고용보고서', 'm'));
+    ['2026-10-29','2026-11-25','2026-12-23'].forEach(d => addFx(d, '美 PCE', 'm')); // 2027 PCE는 규칙(예상)으로 계산
+
+    // FOMC (시작일~결정일, SEP=점도표 회의). 2027년 일정은 연준이 "잠정"으로 공시
+    [['2026-10-27','2026-10-28',0], ['2026-12-08','2026-12-09',1],
+     ['2027-01-26','2027-01-27',0], ['2027-03-16','2027-03-17',1], ['2027-04-27','2027-04-28',0],
+     ['2027-06-08','2027-06-09',1], ['2027-07-27','2027-07-28',0], ['2027-09-14','2027-09-15',1],
+     ['2027-10-26','2027-10-27',0], ['2027-12-07','2027-12-08',1]]
+      .forEach(([d, end, sep]) => addFx(d, sep ? 'FOMC(점도표)' : 'FOMC', 'm', { end }));
+
+    addFx('2026-10-22', '韓 금통위(기준금리)', 'm');
+    addFx('2026-11-26', '韓 금통위(기준금리)', 'm');
+    addFx('2026-11-03', '美 중간선거', 'f');
+    addFx('2026-11-11', 'MSCI 반기 리뷰 발표', 'x');
+    addFx('2027-03-14', '엔비디아 GTC', 'e', { end: '2027-03-18' });
+    addFx('2026-11-17', 'MS 이그나이트', 'e', { end: '2026-11-20', a: 1 });
+    addFx('2026-11-30', 'AWS re:Invent', 'e', { end: '2026-12-04', a: 1 });
+    addFx('2027-02-06', '中 춘절(중화권 증시 연휴)', 'f');
+    addFx('2028-01-26', '中 춘절(중화권 증시 연휴)', 'f');
+    addFx('2026-09-24', '韓 추석 연휴(증시 휴장)', 'f', { end: '2026-09-26' });
+    addFx('2027-09-14', '韓 추석 연휴(증시 휴장)', 'f', { end: '2027-09-16' });
+
+    // 매년 반복되지만 날짜가 확정되지 않은 일정 (m: 0~11)
+    const CAL_MISC = [
+      { m: 2,  d: 5,  t: '中 양회 개막', c: 'm' },
+      { m: 6,  d: 30, t: '中 정치국회의(경제)', c: 'm' },
+      { m: 7,  d: 26, e: [7, 28], t: '잭슨홀 심포지엄', c: 'm' },
+      { m: 11, d: 10, e: [11, 12], t: '中 중앙경제공작회의', c: 'm' },
+      // 어닝시즌: 대형은행 → 삼성전자 잠정 → M7 순서
+      ...[0, 3, 6, 9].map(m => ({ m, d: 13, t: '美 대형은행 실적(어닝시즌 개막)', c: 'e' })),
+      ...[0, 3, 6, 9].map(m => ({ m, d: 7, t: '韓 삼성전자 잠정실적', c: 'e' })),
+      { m: 0, d: 28, e: [1, 5],  t: 'M7 실적 시즌', c: 'e' },
+      { m: 3, d: 22, e: [3, 30], t: 'M7 실적 시즌', c: 'e' },
+      { m: 6, d: 22, e: [6, 30], t: 'M7 실적 시즌', c: 'e' },
+      { m: 9, d: 21, e: [9, 30], t: 'M7 실적 시즌', c: 'e' },
+      { m: 1,  d: 25, t: '엔비디아 실적', c: 'e' },
+      { m: 4,  d: 27, t: '엔비디아 실적', c: 'e' },
+      { m: 7,  d: 26, t: '엔비디아 실적', c: 'e' },
+      { m: 10, d: 18, t: '엔비디아 실적', c: 'e' },
+      { m: 0,  d: 6,  e: [0, 9], t: 'CES', c: 'e' },
+      { m: 4,  d: 19, e: [4, 20], t: '구글 I/O', c: 'e' },
+      { m: 5,  d: 1,  e: [5, 4], t: '컴퓨텍스(타이베이)', c: 'e' },
+      { m: 5,  d: 8,  e: [5, 12], t: '애플 WWDC', c: 'e' },
+      { m: 8,  d: 8,  t: '애플 아이폰 발표행사', c: 'e' },
+      { m: 8,  d: 16, e: [8, 17], t: '메타 커넥트', c: 'e' },
+      { m: 9,  d: 1,  e: [9, 7], t: '中 국경절 연휴(증시 휴장)', c: 'f' },
+    ];
+
+    function calRuleEvents(y, m) {
+      const ev = [];
+      const add = (d, t, c, o = {}) => ev.push({ d: calKey(y, m, d), t, c, ...o });
+      const quad = m % 3 === 2; // 3·6·9·12월
+
+      // 미국: 옵션 만기 / 네마녀의날 / S&P·나스닥 리밸런싱
+      const us = usExpiry(y, m);
+      add(us, quad ? '美 네마녀의날(선물·옵션 동시만기)' : '美 옵션만기', 'x');
+      if (quad) add(us, 'S&P500 분기 리밸런싱', 'x');
+      if (m === 11) add(us, '나스닥100 연례 재구성', 'x');
+
+      // 한국: 매월 둘째 목요일 옵션 만기, 3·6·9·12월은 네마녀의날
+      const kr = nthWeekday(y, m, 4, 2);
+      add(kr, quad ? '韓 네마녀의날(선물·옵션 동시만기)' : '韓 옵션만기', 'x');
+      if (m === 5 || m === 11) add(kr + 1, 'KOSPI200 정기변경 적용', 'x');
+
+      // MSCI: 2·5·8·11월 말 적용 (정확한 적용일은 MSCI 공시 확인)
+      if (m % 3 === 1) add(lastBizDay(y, m), 'MSCI 리밸런싱 적용', 'x', { a: 1 });
+      // 러셀: 6월 넷째 금요일, 12월은 2026년부터 반기 재구성 (2026-12-11 확정)
+      if (m === 5) add(nthWeekday(y, 5, 5, 4), '러셀 지수 재구성', 'x');
+      if (m === 11) add(nthWeekday(y, 11, 5, 2), '러셀 지수 재구성', 'x', y > 2026 ? { a: 1 } : {});
+
+      // 펀드 포지션 정리 시기
+      if (quad) add(lastBizDay(y, m), m === 11 ? '연말 펀드 결산·윈도드레싱' : m === 5 ? '반기말 펀드 결산·윈도드레싱' : '분기말 윈도드레싱·연기금 리밸런싱', 'f');
+      if (m === 9)  add(31, '美 뮤추얼펀드 회계연도 말(절세 매도)', 'f');
+      if (m === 10) add(15, '헤지펀드 연말 환매 통지 마감 무렵(펀드별 상이)', 'f', { a: 1 });
+      if (m === 11) {
+        add(15, '연말 북클로징: 헤지·액티브펀드 포지션 정리', 'f', { a: 1 });
+        let close = 30; while (new Date(y, 11, close).getDay() % 6 === 0) close--;
+        add(close, '韓 연말 폐장(12/31 휴장)', 'f');
+        add(25, '美·韓 크리스마스 휴장', 'f');
+      }
+      if (m === 10) add(nthWeekday(y, 10, 4, 4), '美 추수감사절 휴장(익일 조기폐장)', 'f');
+
+      // 2027 PCE·2028년 이후 고용보고서는 공식 일정 전이라 규칙으로 예상
+      if (y >= 2027) add(lastWeekday(y, m, 5), '美 PCE', 'm', { a: 1 });
+      if (y >= 2028) add(nthWeekday(y, m, 5, 1), '美 고용보고서', 'm', { a: 1 });
+      return ev;
+    }
+
+    function calEventsFor(y, m) {
+      const prefix = `${y}-${CAL_PAD(m + 1)}-`;
+      const ev = CAL_FIXED.filter(e => e.d.startsWith(prefix));
+      ev.push(...calRuleEvents(y, m));
+      CAL_MISC.filter(e => e.m === m).forEach(e => ev.push({
+        d: calKey(y, m, e.d),
+        end: e.e ? calKey(y, e.e[0], e.e[1]) : undefined,
+        t: e.t, c: e.c, a: 1,
+      }));
+      const order = { m: 0, x: 1, e: 2, f: 3 };
+      return ev.sort((a, b) => a.d.localeCompare(b.d) || order[a.c] - order[b.c]);
+    }
+
+    function calDateLabel(e) {
+      const [, mm, dd] = e.d.split('-').map(Number);
+      let s = `${mm}/${dd}`;
+      if (e.end) {
+        const [, m2, d2] = e.end.split('-').map(Number);
+        s += m2 === mm ? `-${d2}` : `-${m2}/${d2}`;
+      }
+      return (e.a ? '~' : '') + s;
+    }
+
+    let calStamp = '';
+    function renderCalendar() {
+      const grid = document.getElementById('calGrid');
+      if (!grid) return;
+      const now = new Date();
+      const todayKey = calKey(now.getFullYear(), now.getMonth(), now.getDate());
+      calStamp = todayKey;
+      grid.innerHTML = '';
+      for (let i = 0; i < 12; i++) {
+        const dt = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const y = dt.getFullYear(), m = dt.getMonth();
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell' + (i === 0 ? ' now' : '');
+        const head = document.createElement('div');
+        head.className = 'cal-head';
+        head.textContent = `${m + 1}월`;
+        const yr = document.createElement('small');
+        yr.textContent = i === 0 ? `${y} · 이번 달` : String(y);
+        head.appendChild(yr);
+        cell.appendChild(head);
+        calEventsFor(y, m).forEach(e => {
+          const row = document.createElement('div');
+          const last = e.end || e.d;
+          row.className = `cal-ev ${e.c}` + (last < todayKey ? ' past' : '') + (e.d <= todayKey && todayKey <= last ? ' today' : '');
+          const d = document.createElement('span');
+          d.className = 'd';
+          d.textContent = calDateLabel(e);
+          row.appendChild(d);
+          row.appendChild(document.createTextNode(e.t));
+          cell.appendChild(row);
+        });
+        grid.appendChild(cell);
+      }
+    }
+    // 앱을 켜둔 채 날짜가 바뀌면 다시 그림
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !calStamp) return;
+      const n = new Date();
+      if (calKey(n.getFullYear(), n.getMonth(), n.getDate()) !== calStamp) renderCalendar();
+    });
+
     // ── 초기화 ──
     async function init() {
       applyColWidths();
@@ -1384,7 +1635,7 @@ async function doRestore() {
         const r = sel.getRangeAt(0);
         r.deleteContents();
         // 이미지 뒤에 커서를 고정할 빈 텍스트 노드
-        const after = document.createTextNode('\u200B');
+        const after = document.createTextNode('​');
         r.insertNode(after);
         r.insertNode(imgEl);
         r.setStartAfter(after);
@@ -1528,6 +1779,7 @@ async function doRestore() {
     //  세션은 Supabase가 브라우저에 저장하고 자동 갱신 → 기기마다 1회만 로그인.
     // ════════════════════════════════════════════════════════
     function startApp() {
+      renderCalendar();
       // 자유노트 두 개 초기화
       initNote('free-note',  'note-status',  'freenote');
       initNote('free-note2', 'note-status2', 'freenote2');
