@@ -252,6 +252,13 @@
     .cal-ev.x { border-left-color: #b8692e; } .cal-ev.x .d { color: #e8924a; }
     .cal-ev.e { border-left-color: #2f8a4a; } .cal-ev.e .d { color: #52c46e; }
     .cal-ev.f { border-left-color: #7a5aa8; } .cal-ev.f .d { color: #b48ae0; }
+    .cal-ev { cursor: pointer; }
+    .cal-ev:hover { background: #222; }
+    .cal-modal-row { display: flex; gap: 8px; margin-top: 8px; }
+    .cal-modal-row > * { flex: 1; min-width: 0; }
+    .cal-modal-lbl { font-size: 11px; color: #777; margin: 8px 0 3px; display: block; }
+    .cal-modal .auth-input { color-scheme: dark; }
+    .cal-modal-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
     .cal-ev.past { opacity: 0.38; }
     .cal-ev.today { background: #262626; font-weight: 600; }
     .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; color: #666; }
@@ -385,14 +392,49 @@
 
   <!-- 연간 캘린더: 이번 달부터 12개월 -->
   <div class="section">
-    <div class="section-title">연간 캘린더</div>
+    <div class="section-title" style="display:flex;align-items:center;gap:10px;">
+      <span>연간 캘린더</span>
+      <button class="backup-btn" style="text-transform:none;letter-spacing:0;" onclick="openCalEditor(null)">＋ 일정 추가</button>
+    </div>
     <div class="cal-wrap"><div class="cal-grid" id="calGrid"></div></div>
     <div class="cal-legend">
       <span><i style="background:#3a6a9a"></i>매크로·통화</span>
       <span><i style="background:#b8692e"></i>만기·리밸런싱</span>
       <span><i style="background:#2f8a4a"></i>실적·기업행사</span>
       <span><i style="background:#7a5aa8"></i>펀드·휴장·기타</span>
-      <span>~ 표시는 예상(미확정) 일정 · 흐린 글씨는 지난 일정</span>
+      <span>~ 표시는 예상(미확정) 일정 · 흐린 글씨는 지난 일정 · 일정을 누르면 수정</span>
+      <span id="calSrc"></span>
+    </div>
+  </div>
+
+  <!-- 캘린더 일정 추가/수정 창 -->
+  <div class="auth-overlay cal-modal" id="calModal">
+    <div class="auth-box" style="max-width:340px;">
+      <div class="auth-title" id="calModalTitle">일정 추가</div>
+      <div class="cal-modal-row">
+        <div><label class="cal-modal-lbl" for="calStart">시작일</label><input type="date" id="calStart" class="auth-input"></div>
+        <div><label class="cal-modal-lbl" for="calEnd">종료일 (선택)</label><input type="date" id="calEnd" class="auth-input"></div>
+      </div>
+      <label class="cal-modal-lbl" for="calTitle">내용</label>
+      <input type="text" id="calTitle" class="auth-input" placeholder="예: 엔비디아 실적" spellcheck="false">
+      <label class="cal-modal-lbl" for="calCat">분류</label>
+      <select id="calCat" class="auth-input">
+        <option value="m">매크로·통화</option>
+        <option value="x">만기·리밸런싱</option>
+        <option value="e">실적·기업행사</option>
+        <option value="f">펀드·휴장·기타</option>
+      </select>
+      <label class="cal-modal-lbl" style="display:flex;align-items:center;gap:6px;color:#aaa;font-size:13px;margin-top:12px;">
+        <input type="checkbox" id="calApprox"> 예상(미확정) — 날짜 앞에 ~ 표시
+      </label>
+      <div class="auth-err" id="calErr"></div>
+      <div class="cal-modal-actions">
+        <button class="backup-btn" id="calDelBtn" style="color:#d95a5a;border-color:#4a2a2a;" onclick="deleteCalEvent()">삭제</button>
+        <span style="display:flex;gap:8px;">
+          <button class="backup-btn" onclick="closeCalEditor()">취소</button>
+          <button class="backup-btn" style="color:#9cc8f0;border-color:#3a6a9a;" onclick="saveCalEvent()">저장</button>
+        </span>
+      </div>
     </div>
   </div>
 
@@ -1357,6 +1399,85 @@ async function doRestore() {
       return (e.a ? '~' : '') + s;
     }
 
+    // ── 일정 DB (Supabase calendar_events) ──
+    // 표시 기간(이번 달부터 12개월)만 읽어오므로 화면을 열 때마다 1회, 100~150건 정도만 조회
+    // CAL_DB가 null이면(조회 실패·빈 표) 위의 내장 일정으로 대신 표시
+    let CAL_DB = null, calLoadedAt = 0;
+    const CAL_ORDER = { m: 0, x: 1, e: 2, f: 3 };
+    async function loadCalendarDb() {
+      const now = new Date();
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+      const from = calKey(now.getFullYear(), now.getMonth(), 1);
+      const to = calKey(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate());
+      try {
+        const { data, error } = await db.from('calendar_events')
+          .select('id,event_date,end_date,title,category,approx')
+          .gte('event_date', from).lte('event_date', to).order('event_date');
+        if (error) throw error;
+        CAL_DB = data.length ? data.map(r => ({
+          id: r.id, d: r.event_date, end: r.end_date || undefined, t: r.title, c: r.category, a: r.approx,
+        })) : null;
+      } catch (e) {
+        console.error('캘린더 일정 로드 실패:', e);
+        CAL_DB = null;
+      }
+      calLoadedAt = Date.now();
+      const src = document.getElementById('calSrc');
+      if (src) src.textContent = CAL_DB ? '' : '⚠ DB 연결 실패 — 내장 일정 표시 중(수정 불가)';
+    }
+    function calEventsView(y, m) {
+      if (!CAL_DB) return calEventsFor(y, m);
+      const prefix = `${y}-${CAL_PAD(m + 1)}-`;
+      return CAL_DB.filter(e => e.d.startsWith(prefix))
+        .sort((a, b) => a.d.localeCompare(b.d) || CAL_ORDER[a.c] - CAL_ORDER[b.c]);
+    }
+
+    // ── 일정 추가/수정/삭제 ──
+    let calEditId = null;
+    const $cal = id => document.getElementById(id);
+    function openCalEditor(ev) {
+      if (!CAL_DB) { alert('일정 DB에 연결되지 않아 수정할 수 없어요. 새로고침 후 다시 시도해주세요.'); return; }
+      calEditId = ev ? ev.id : null;
+      const now = new Date();
+      $cal('calModalTitle').textContent = ev ? '일정 수정' : '일정 추가';
+      $cal('calStart').value = ev ? ev.d : calKey(now.getFullYear(), now.getMonth(), now.getDate());
+      $cal('calEnd').value = ev && ev.end ? ev.end : '';
+      $cal('calTitle').value = ev ? ev.t : '';
+      $cal('calCat').value = ev ? ev.c : 'e';
+      $cal('calApprox').checked = ev ? !!ev.a : false;
+      $cal('calDelBtn').style.visibility = ev ? 'visible' : 'hidden';
+      $cal('calErr').textContent = '';
+      $cal('calModal').classList.add('on');
+      $cal('calTitle').focus();
+    }
+    function closeCalEditor() { $cal('calModal').classList.remove('on'); calEditId = null; }
+    async function afterCalChange() {
+      await loadCalendarDb();
+      renderCalendar();
+      closeCalEditor();
+      setStatus('saved');
+    }
+    async function saveCalEvent() {
+      const d = $cal('calStart').value, end = $cal('calEnd').value, t = $cal('calTitle').value.trim();
+      if (!d || !t) { $cal('calErr').textContent = '시작일과 내용을 입력해주세요.'; return; }
+      if (end && end < d) { $cal('calErr').textContent = '종료일이 시작일보다 빠릅니다.'; return; }
+      const row = { event_date: d, end_date: end || null, title: t, category: $cal('calCat').value, approx: $cal('calApprox').checked, updated_at: new Date().toISOString() };
+      setStatus('saving');
+      const { error } = calEditId
+        ? await db.from('calendar_events').update(row).eq('id', calEditId)
+        : await db.from('calendar_events').insert(row);
+      if (error) { console.error(error); $cal('calErr').textContent = '저장 실패: ' + error.message; setStatus('error'); return; }
+      await afterCalChange();
+    }
+    async function deleteCalEvent() {
+      if (!calEditId || !confirm('이 일정을 삭제할까요?')) return;
+      setStatus('saving');
+      const { error } = await db.from('calendar_events').delete().eq('id', calEditId);
+      if (error) { console.error(error); $cal('calErr').textContent = '삭제 실패: ' + error.message; setStatus('error'); return; }
+      await afterCalChange();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCalEditor(); });
+
     let calStamp = '';
     function renderCalendar() {
       const grid = document.getElementById('calGrid');
@@ -1377,10 +1498,11 @@ async function doRestore() {
         yr.textContent = i === 0 ? `${y} · 이번 달` : String(y);
         head.appendChild(yr);
         cell.appendChild(head);
-        calEventsFor(y, m).forEach(e => {
+        calEventsView(y, m).forEach(e => {
           const row = document.createElement('div');
           const last = e.end || e.d;
           row.className = `cal-ev ${e.c}` + (last < todayKey ? ' past' : '') + (e.d <= todayKey && todayKey <= last ? ' today' : '');
+          row.addEventListener('click', () => openCalEditor(e));
           const d = document.createElement('span');
           d.className = 'd';
           d.textContent = calDateLabel(e);
@@ -1391,11 +1513,15 @@ async function doRestore() {
         grid.appendChild(cell);
       }
     }
-    // 앱을 켜둔 채 날짜가 바뀌면 다시 그림
-    document.addEventListener('visibilitychange', () => {
+    // 앱을 켜둔 채 날짜가 바뀌거나, 1분 넘게 자리를 비웠다 돌아오면 일정을 다시 불러와 그림
+    document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState !== 'visible' || !calStamp) return;
       const n = new Date();
-      if (calKey(n.getFullYear(), n.getMonth(), n.getDate()) !== calStamp) renderCalendar();
+      const dayChanged = calKey(n.getFullYear(), n.getMonth(), n.getDate()) !== calStamp;
+      if (dayChanged || Date.now() - calLoadedAt > 60000) {
+        await loadCalendarDb();
+        renderCalendar();
+      }
     });
 
     // ── 초기화 ──
@@ -1779,7 +1905,7 @@ async function doRestore() {
     //  세션은 Supabase가 브라우저에 저장하고 자동 갱신 → 기기마다 1회만 로그인.
     // ════════════════════════════════════════════════════════
     function startApp() {
-      renderCalendar();
+      loadCalendarDb().finally(renderCalendar);
       // 자유노트 두 개 초기화
       initNote('free-note',  'note-status',  'freenote');
       initNote('free-note2', 'note-status2', 'freenote2');
