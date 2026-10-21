@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="내주식관리">
   <meta name="theme-color" content="#141414">
   <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -264,6 +265,31 @@
     .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; color: #666; }
     .cal-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
 
+    /* ── 미국 국채 금리 차트 ── */
+    .rates-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+    .rates-range { display: flex; flex-wrap: wrap; gap: 4px; }
+    .rates-range button {
+      font-size: 11px; font-family: inherit; text-transform: none; letter-spacing: 0;
+      background: none; border: 0.5px solid #333; border-radius: 4px;
+      color: #777; padding: 2px 7px; cursor: pointer;
+    }
+    .rates-range button:hover { border-color: #555; color: #aaa; }
+    .rates-range button.on { background: #1a3050; border-color: #3a6a9a; color: #9cc8f0; }
+    @media (pointer: coarse) { .rates-range button { padding: 5px 9px; } }
+    .rates-wrap { border: 0.5px solid #2e2e2e; border-radius: 6px; background: #1c1c1c; padding: 8px 6px 6px; }
+    .rates-legend {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px;
+      font-size: 12px; color: #999; padding: 0 6px 6px; min-height: 22px;
+      font-variant-numeric: tabular-nums;
+    }
+    .rates-legend b { color: #e2e2e2; font-weight: 500; }
+    .rates-legend i { display: inline-block; width: 12px; height: 1px; border-radius: 1px; margin-right: 5px; vertical-align: middle; }
+    .rates-legend .date { color: #777; }
+    .rates-legend .inv { color: #e66767; margin-left: 3px; font-size: 11px; }
+    #ratesChart { height: 260px; }
+    .rates-msg { height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 12px; font-size: 13px; color: #aaa; }
+    .rates-foot { font-size: 11px; color: #555; padding: 4px 6px 0; }
+
     /* ── 자유노트 ── */
     .free-note {
       background: #161616;
@@ -407,6 +433,19 @@
     </div>
   </div>
 
+  <!-- 미국 국채 금리 (FRED 10년·2년·3개월) -->
+  <div class="section">
+    <div class="section-title rates-head">
+      <span>미국 국채 금리 · 장단기</span>
+      <span class="rates-range" id="ratesRange"></span>
+    </div>
+    <div class="rates-wrap">
+      <div class="rates-legend" id="ratesLegend"></div>
+      <div id="ratesChart"><div class="rates-msg">금리 불러오는 중...</div></div>
+      <div class="rates-foot" id="ratesFoot">출처: FRED (DGS10 · DGS2 · DGS3MO), 일별 · 차트에 마우스를 올리거나 누르면 그날 값</div>
+    </div>
+  </div>
+
   <!-- 캘린더 일정 추가/수정 창 -->
   <div class="auth-overlay cal-modal" id="calModal">
     <div class="auth-box" style="max-width:340px;">
@@ -478,6 +517,8 @@
 
   <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 금리 차트 -->
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
 
   <script>
     // ── Supabase 초기화 ──
@@ -1900,12 +1941,160 @@ async function doRestore() {
     }
 
     // ════════════════════════════════════════════════════════
+    //  미국 국채 금리 차트 (FRED: 10년·2년·3개월)
+    //  Supabase 함수 fred-rates가 FRED에서 받아 넘겨준다(API 키는 함수 비밀값).
+    //  처음엔 최근 10년치만 받고, '전체'를 누를 때 1962년부터 다시 받는다.
+    // ════════════════════════════════════════════════════════
+    const RATE_SERIES = [
+      { id: 'DGS10',  name: '10년',  color: '#3987e5' },
+      { id: 'DGS2',   name: '2년',   color: '#d95926' },
+      { id: 'DGS3MO', name: '3개월', color: '#199e70' },
+    ];
+    // [코드, 버튼 글자, 개월 수(0 = 전체)]
+    const RATE_RANGES = [
+      ['1Y', '1년', 12], ['3Y', '3년', 36], ['5Y', '5년', 60], ['10Y', '10년', 120], ['ALL', '전체', 0],
+    ];
+    const ratesData = { recent: null, full: null };
+    let ratesRange = '1Y';
+    try { ratesRange = localStorage.getItem('ratesRange') || '1Y'; } catch (e) {}
+    if (!RATE_RANGES.some(r => r[0] === ratesRange)) ratesRange = '1Y';
+    let ratesPlot = null, ratesView = null;
+
+    async function fetchRates(full) {
+      const key = full ? 'full' : 'recent';
+      if (ratesData[key]) return ratesData[key];
+      const start = new Date();
+      start.setMonth(start.getMonth() - 121);
+      const { data, error } = await db.functions.invoke('fred-rates', {
+        body: full ? {} : { start: start.toISOString().slice(0, 10) },
+      });
+      if (error) {
+        let msg = error.message;
+        try { const j = await error.context.json(); if (j?.error) msg = j.error; } catch (e) {}
+        throw new Error(msg);
+      }
+      return (ratesData[key] = data);
+    }
+
+    function renderRateButtons() {
+      const box = document.getElementById('ratesRange');
+      box.innerHTML = '';
+      for (const [code, label] of RATE_RANGES) {
+        const b = document.createElement('button');
+        b.textContent = label;
+        if (code === ratesRange) b.className = 'on';
+        b.onclick = () => {
+          ratesRange = code;
+          try { localStorage.setItem('ratesRange', code); } catch (e) {}
+          loadRates();
+        };
+        box.appendChild(b);
+      }
+    }
+
+    async function loadRates() {
+      renderRateButtons();
+      try {
+        drawRates(await fetchRates(ratesRange === 'ALL'));
+      } catch (e) {
+        console.error('금리 데이터 로드 실패:', e);
+        if (ratesPlot) { ratesPlot.destroy(); ratesPlot = null; }
+        const msg = document.createElement('div');
+        msg.className = 'rates-msg';
+        msg.textContent = '금리 데이터를 불러오지 못했어요 (' + (e.message || e) + ')';
+        document.getElementById('ratesChart').replaceChildren(msg);
+      }
+    }
+
+    // 눈금 간격(0.25 등)을 반올림 없이 보여줄 소수 자릿수
+    function rateDecimals(incr) {
+      for (let d = 0; d < 3; d++) if (Math.abs(Math.round(incr * 10 ** d) - incr * 10 ** d) < 1e-6) return d;
+      return 2;
+    }
+
+    function ratesOpts(width, height) {
+      const axis = {
+        stroke: '#777', font: '11px -apple-system, BlinkMacSystemFont, sans-serif',
+        grid: { stroke: '#262626', width: 1 }, ticks: { show: false },
+      };
+      const DAY = 86400;
+      return {
+        width, height,
+        legend: { show: false },
+        cursor: { drag: { x: false, y: false }, points: { size: 8 } },
+        tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC'),
+        scales: { x: { time: true } },
+        axes: [
+          { ...axis, space: 60, values: (u, splits, ai, space, incr) => splits.map(s => {
+              const d = new Date(s * 1e3), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+              if (incr >= 300 * DAY) return String(y);
+              if (incr >= 28 * DAY) return `${String(y).slice(2)}.${m}`;
+              return `${m}/${d.getUTCDate()}`;
+            }) },
+          { ...axis, size: 46, values: (u, splits, ai, space, incr) =>
+              splits.map(v => v.toFixed(rateDecimals(incr)) + '%') },
+        ],
+        series: [{}, ...RATE_SERIES.map(s => ({
+          label: s.name, stroke: s.color, width: 1, spanGaps: true, points: { show: false },
+        }))],
+        hooks: { setCursor: [u => ratesLegend(u.cursor.idx)] },
+      };
+    }
+
+    function drawRates(data) {
+      const months = RATE_RANGES.find(r => r[0] === ratesRange)[2];
+      let from = 0;
+      if (months) {
+        const cut = new Date(data.dates[data.dates.length - 1]);
+        cut.setMonth(cut.getMonth() - months);
+        from = Math.max(0, data.dates.findIndex(d => d >= cut.toISOString().slice(0, 10)));
+      }
+      const dates = data.dates.slice(from);
+      const ys = RATE_SERIES.map(s => data.series[s.id].slice(from));
+      const plotData = [dates.map(d => Date.parse(d) / 1000), ...ys];
+      ratesView = { dates, ys };
+
+      const box = document.getElementById('ratesChart');
+      if (ratesPlot) {
+        ratesPlot.setData(plotData);
+      } else {
+        box.replaceChildren();
+        ratesPlot = new uPlot(ratesOpts(box.clientWidth, box.clientHeight), plotData, box);
+        new ResizeObserver(() => {
+          if (ratesPlot) ratesPlot.setSize({ width: box.clientWidth, height: box.clientHeight });
+        }).observe(box);
+      }
+      ratesLegend(null);
+    }
+
+    // 범례 = 값 표시줄. 커서가 없으면 가장 최근 값, 있으면 그날 값.
+    function ratesLegend(idx) {
+      if (!ratesView) return;
+      const { dates, ys } = ratesView;
+      const i = idx ?? dates.length - 1;
+      // 휴일처럼 그날 값이 비어 있으면 직전 값을 쓴다
+      const val = k => { for (let j = i; j >= 0; j--) if (ys[k][j] != null) return ys[k][j]; return null; };
+      const v = RATE_SERIES.map((s, k) => val(k));
+      const pct = x => x == null ? '–' : x.toFixed(2) + '%';
+      const spread = (label, a, b) => {
+        if (a == null || b == null) return '';
+        const d = a - b;
+        return `<span>${label} <b>${d >= 0 ? '+' : ''}${d.toFixed(2)}%p</b>${d < 0 ? '<span class="inv">역전</span>' : ''}</span>`;
+      };
+      document.getElementById('ratesLegend').innerHTML =
+        `<span class="date">${dates[i]}</span>` +
+        RATE_SERIES.map((s, k) => `<span><i style="background:${s.color}"></i>${s.name} <b>${pct(v[k])}</b></span>`).join('') +
+        spread('10년-2년', v[0], v[1]) + spread('10년-3개월', v[0], v[2]);
+    }
+
+    // ════════════════════════════════════════════════════════
     //  로그인 (이메일 + 비밀번호)
     //  로그인 전에는 대시보드를 숨기고 DB 요청도 보내지 않는다.
     //  세션은 Supabase가 브라우저에 저장하고 자동 갱신 → 기기마다 1회만 로그인.
     // ════════════════════════════════════════════════════════
     function startApp() {
       loadCalendarDb().finally(renderCalendar);
+      loadRates();
       // 자유노트 두 개 초기화
       initNote('free-note',  'note-status',  'freenote');
       initNote('free-note2', 'note-status2', 'freenote2');
