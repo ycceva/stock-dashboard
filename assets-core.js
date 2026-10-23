@@ -27,6 +27,14 @@
     return sign + parts.join(' ');
   }
 
+  // 차트 눈금 글자: 1억 이상은 "10.25억"처럼, 소수 자리는 눈금 간격이 구분될 만큼만
+  function axisLabel(v, step) {
+    if (v === 0) return '0';
+    if (v < 1e8) return fmtWon(v);
+    const dec = Math.max(0, Math.ceil(-Math.log10(step / 1e8) - 1e-9));
+    return +(v / 1e8).toFixed(dec) + '억';
+  }
+
   const sumAcc = list => (list || []).reduce((s, a) => s + num(a && a.amount), 0);
 
   function monthTotals(rec) {
@@ -96,7 +104,7 @@
     };
   }
 
-  const api = { GOAL, parseWon, fmtWon, monthTotals, sortRecords, summary, composition, yearlyFlows, yearlyBalances, prefillFor };
+  const api = { GOAL, parseWon, fmtWon, axisLabel, monthTotals, sortRecords, summary, composition, yearlyFlows, yearlyBalances, prefillFor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AssetCore = api;
 })(this);

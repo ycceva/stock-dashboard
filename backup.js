@@ -232,9 +232,17 @@ if (BACKUP.asset_months?.length) {
   const { error } = await db.from('asset_months').upsert(BACKUP.asset_months, { onConflict: 'month' });
   if (error) throw error;
 }
+// AI 점검은 id 없이 넣는다(id를 직접 넣으면 번호 카운터가 안 움직여 다음 점검 저장이 충돌). 이미 있는 글은 작성 시각으로 건너뜀.
 if (BACKUP.asset_reviews?.length) {
-  const { error } = await db.from('asset_reviews').upsert(BACKUP.asset_reviews, { onConflict: 'id' });
-  if (error) throw error;
+  const { data: have, error: e1 } = await db.from('asset_reviews').select('created_at');
+  if (e1) throw e1;
+  const seen = new Set((have || []).map(r => new Date(r.created_at).getTime()));
+  const rows = BACKUP.asset_reviews.filter(r => !seen.has(new Date(r.created_at).getTime()))
+    .map(({ id, ...rest }) => rest);
+  if (rows.length) {
+    const { error } = await db.from('asset_reviews').insert(rows);
+    if (error) throw error;
+  }
 }
 
 log.textContent = '✓ 복원 완료! 대시보드를 새로고침하면 반영됩니다.';

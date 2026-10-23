@@ -118,3 +118,12 @@ test('prefillFor: 이전 기록이 없으면 가장 최신 기록, 하나도 없
 test('GOAL은 20억', () => {
   assert.equal(AC.GOAL, 2_000_000_000);
 });
+
+test('axisLabel: 눈금 간격이 좁아도 이웃 눈금 글자가 겹치지 않는다', () => {
+  const step = 2_500_000, ticks = [0, 1, 2, 3, 4].map(i => 170_000_000 + i * step);
+  const labels = ticks.map(v => AC.axisLabel(v, step));
+  assert.equal(new Set(labels).size, labels.length, labels.join(' | '));
+  assert.equal(AC.axisLabel(0, step), '0');
+  assert.equal(AC.axisLabel(1_000_000_000, 500_000_000), '10억');
+  assert.equal(AC.axisLabel(5_000_000, 2_500_000), '500만');
+});

@@ -360,7 +360,6 @@
     }
 
     // ━━━━━━━━━━ 차트 공통 ━━━━━━━━━━
-    const axisWon = v => (v >= 1e8 ? +(v / 1e8).toFixed(2) + '억' : W(v));
     // 값 범위에 맞춘 눈금 (0에서 시작하지 않아도 됨 — 선 차트용)
     function niceRange(lo, hi) {
       if (hi === lo) { const pad = Math.max(Math.abs(hi) * 0.02, 1e6); lo -= pad; hi += pad; }
@@ -401,7 +400,7 @@
       let g = '';
       for (let v = lo; v <= hi + step / 2; v += step) {
         const yy = y(v);
-        g += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}" stroke="#262626"/><text x="${x0 - 6}" y="${yy + 4}" fill="#5c5c5c" font-size="10" text-anchor="end">${axisWon(v)}</text>`;
+        g += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}" stroke="#262626"/><text x="${x0 - 6}" y="${yy + 4}" fill="#5c5c5c" font-size="10" text-anchor="end">${AC.axisLabel(v, step)}</text>`;
       }
       return g;
     }
@@ -525,12 +524,16 @@
     function initMemo() {
       const area = $('assetMemo'), sts = $('memoStatus');
       const show = (cls, msg) => { sts.className = 'memo-status ' + cls; sts.textContent = msg; };
-      let t;
+      // 저장된 메모를 다 불러오기 전에는 입력·저장을 막는다 (불러오기 실패 후 입력하면 원래 메모가 덮어써짐)
+      let t, loaded = false;
+      area.contentEditable = 'false';
+      show('', '불러오는 중...');
       area.addEventListener('paste', e => {
         e.preventDefault();
         document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
       });
       area.addEventListener('input', () => {
+        if (!loaded) return;
         clearTimeout(t); show('saving', '저장 중...');
         t = setTimeout(async () => {
           const { error } = await db.from('study_notes').upsert({ id: 'assetnote', content: area.innerHTML, updated_at: new Date().toISOString() });
@@ -538,7 +541,11 @@
           show('saved', '✓ 저장됨'); setTimeout(() => show('', ''), 1800);
         }, 800);
       });
-      db.from('study_notes').select('content').eq('id', 'assetnote').maybeSingle().then(({ data }) => { if (data?.content) area.innerHTML = data.content; });
+      db.from('study_notes').select('content').eq('id', 'assetnote').maybeSingle().then(({ data, error }) => {
+        if (error) { console.error(error); show('error', '메모를 불러오지 못했어요 · 새로고침해 주세요'); return; }
+        if (data?.content) area.innerHTML = data.content;
+        loaded = true; area.contentEditable = 'true'; show('', '');
+      });
     }
 
     // ━━━━━━━━━━ 이번달 가계부쓰기 팝업 ━━━━━━━━━━
