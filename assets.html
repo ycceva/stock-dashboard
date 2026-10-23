@@ -128,8 +128,19 @@
     .grp-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin: 16px 0 6px; }
     .add { font-size: 12px; color: #9cc8f0; background: none; border: none; cursor: pointer; }
     .acc { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
-    .x { background: none; border: none; color: #666; font-size: 15px; cursor: pointer; padding: 0 4px; }
-    .x:hover { color: #d95a5a; }
+    /* 줄 삭제(계좌 자체를 없앰): 칸 바깥, 글자 버튼 */
+    .x { flex: none; background: none; border: 0.5px solid #3a2a2a; border-radius: 4px; color: #a06060; font-size: 11px; cursor: pointer; padding: 4px 6px; }
+    .x:hover { color: #e07070; border-color: #6a3a3a; }
+    /* 금액 지우기(숫자만 비움): 금액 칸 안쪽 오른쪽 회색 동그라미, 값이 있을 때만 보임 */
+    .money-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+    .money-wrap .in { padding-right: 32px; }
+    .clr {
+      position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+      width: 18px; height: 18px; border-radius: 50%; border: none; cursor: pointer;
+      background: #3a3a3a; color: #bbb; font-size: 12px; line-height: 18px; padding: 0; text-align: center;
+    }
+    .clr:hover { background: #555; color: #fff; }
+    .money:placeholder-shown + .clr { display: none; }
     .sum { display: flex; justify-content: space-between; background: #262626; border-radius: 5px; padding: 7px 9px; font-size: 13px; margin-top: 4px; color: #aaa; }
     .sum b { color: var(--yellow); font-weight: 600; }
     .modal-err { font-size: 12px; color: #ff8a8a; min-height: 16px; margin-top: 10px; }
@@ -231,9 +242,9 @@
       <h2 id="ledgerTitle">이번달 가계부쓰기</h2>
       <div class="f"><label for="fYear">월 선택</label>
         <select id="fYear" class="in sel"></select><select id="fMon" class="in sel"></select></div>
-      <div class="f"><label for="fIncome">이달 입금</label><input id="fIncome" class="in money" inputmode="numeric" placeholder="0"></div>
-      <div class="f"><label for="fExpense">이달 지출</label><input id="fExpense" class="in money" inputmode="numeric" placeholder="0"></div>
-      <div class="f"><label for="fHouse">부동산 시세</label><input id="fHouse" class="in money" inputmode="numeric" placeholder="0"></div>
+      <div class="f"><label for="fIncome">이달 입금</label><span class="money-wrap"><input id="fIncome" class="in money" inputmode="numeric" placeholder="0"><button class="clr" type="button" tabindex="-1" title="금액 지우기" onclick="clearMoney(this)">×</button></span></div>
+      <div class="f"><label for="fExpense">이달 지출</label><span class="money-wrap"><input id="fExpense" class="in money" inputmode="numeric" placeholder="0"><button class="clr" type="button" tabindex="-1" title="금액 지우기" onclick="clearMoney(this)">×</button></span></div>
+      <div class="f"><label for="fHouse">부동산 시세</label><span class="money-wrap"><input id="fHouse" class="in money" inputmode="numeric" placeholder="0"><button class="clr" type="button" tabindex="-1" title="금액 지우기" onclick="clearMoney(this)">×</button></span></div>
 
       <div class="grp-h"><span>본인 주식계좌</span><button class="add" onclick="addAccRow('mine')">＋ 계좌 추가</button></div>
       <div id="accMine"></div>
@@ -584,8 +595,13 @@
 
     function accRowHtml(a) {
       return `<div class="acc"><input class="in name" placeholder="계좌 이름" value="${esc(a.name)}" spellcheck="false">` +
-        `<input class="in money" inputmode="numeric" placeholder="0" value="${fmtInput(a.amount)}">` +
-        `<button class="x" title="계좌 삭제" onclick="this.parentElement.remove(); updateSums()">✕</button></div>`;
+        `<span class="money-wrap"><input class="in money" inputmode="numeric" placeholder="0" value="${fmtInput(a.amount)}">` +
+        `<button class="clr" type="button" tabindex="-1" title="금액 지우기" onclick="clearMoney(this)">×</button></span>` +
+        `<button class="x" type="button" title="이 계좌 줄을 삭제" onclick="this.parentElement.remove(); updateSums()">삭제</button></div>`;
+    }
+    function clearMoney(btn) {
+      const input = btn.previousElementSibling;
+      input.value = ''; input.focus(); updateSums();
     }
     function addAccRow(group) {
       const box = group === 'mine' ? $('accMine') : $('accSpouse');
@@ -622,7 +638,7 @@
       const y = $('fYear').value, done = new Set(RECORDS.filter(r => r.month.startsWith(y + '-')).map(r => r.month.slice(5)));
       $('fMon').innerHTML = Array.from({ length: 12 }, (_, i) => {
         const mm = String(i + 1).padStart(2, '0');
-        return `<option value="${mm}">${i + 1}월${done.has(mm) ? ' ✓ 입력됨' : ''}</option>`;
+        return `<option value="${mm}">${i + 1}월${done.has(mm) ? ' ✓' : ''}</option>`;
       }).join('');
       $('fMon').value = keep;
     }
