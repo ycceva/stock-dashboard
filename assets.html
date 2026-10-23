@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>우리집 자산관리</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="우리집자산">
+  <meta name="theme-color" content="#141414">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #141414; --card: #1b1b1b; --card2: #212121; --line: #2a2a2a;
+      --text: #e2e2e2; --muted: #888; --dim: #5c5c5c;
+      --yellow: #f2c94c; --cash: #5fc08f; --house: #5b6b80;
+      --up: #e0605a; --down: #5fa0e8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      font-size: 15px; background: var(--bg); color: var(--text); padding: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    button { font-family: inherit; }
+
+    /* ── 상단 ── */
+    .header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .header h1 { font-size: 17px; font-weight: 500; flex: 1; min-width: 140px; }
+    .btn {
+      font-size: 12px; background: none; border: 0.5px solid #333; border-radius: 4px;
+      color: #888; padding: 4px 10px; cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    .btn:hover { border-color: #555; color: #bbb; }
+    .btn-y { background: var(--yellow); color: #1a1a1a; border: none; font-weight: 600; font-size: 13px; padding: 7px 14px; }
+    .btn-y:hover { background: #f6d76e; color: #1a1a1a; }
+    .btn-blue { color: #9cc8f0; border-color: #3a6a9a; }
+    .btn-red { color: #d95a5a; border-color: #4a2a2a; }
+
+    /* ── 섹션 ── */
+    .sec { background: var(--card); border: 1px solid #262626; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+    .sec-title {
+      font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .6px;
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .sec-title .grow { flex: 1; }
+    .sec-title .sub { color: var(--dim); font-weight: 400; letter-spacing: 0; }
+    .empty { color: var(--dim); font-size: 13px; padding: 18px 0; text-align: center; }
+    .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+
+    /* ① 한눈에 */
+    .kpis { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 10px; }
+    .kpi { background: var(--card2); border-radius: 6px; padding: 12px; min-width: 0; }
+    .kpi .k { font-size: 12px; color: var(--muted); }
+    .kpi .v { font-size: 21px; font-weight: 600; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kpi .s { font-size: 12px; color: var(--dim); margin-top: 3px; }
+    .kpi.total .v { font-size: 27px; color: var(--yellow); }
+
+    /* ② 자산 구성 */
+    .split { height: 12px; display: flex; border-radius: 6px; overflow: hidden; background: #262626; }
+    .split div { height: 100%; }
+    .split-lbl { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: #aaa; margin: 6px 0 18px; flex-wrap: wrap; }
+    .donut-row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+    .donut-row svg { flex: none; }
+    .legend { flex: 1; min-width: 240px; font-size: 13px; }
+    .legend .g { display: flex; justify-content: space-between; gap: 10px; color: #ddd; margin: 10px 0 4px; }
+    .legend .g:first-child { margin-top: 0; }
+    .legend .r { display: flex; justify-content: space-between; gap: 10px; color: #aaa; padding: 2px 0 2px 15px; }
+    .divider { border-top: 1px solid #262626; margin: 18px 0 14px; }
+
+    /* 전환 버튼 */
+    .tog { display: inline-flex; border: 1px solid #333; border-radius: 4px; overflow: hidden; }
+    .tog button { font-size: 11px; padding: 3px 10px; color: #777; background: none; border: none; cursor: pointer; }
+    .tog button.on { background: #333; color: #eee; }
+
+    /* 차트 */
+    .chart-scroll { overflow-x: auto; position: relative; }
+    .chart-scroll svg { display: block; }
+    .chart-legend { font-size: 11px; color: #777; margin-top: 6px; }
+    .tip {
+      position: absolute; pointer-events: none; background: #262626; border: 1px solid #3a3a3a;
+      border-radius: 6px; padding: 7px 9px; font-size: 12px; line-height: 1.6; color: #ddd;
+      white-space: nowrap; display: none; z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    }
+    .tip b { color: #fff; font-weight: 500; }
+
+    /* ④ 메모 */
+    .memo {
+      min-height: 80px; background: var(--card2); border-radius: 6px; padding: 10px 12px;
+      font-size: 14px; color: #ccc; line-height: 1.6; outline: none; white-space: pre-wrap; word-break: break-word;
+    }
+    .memo:empty::before { content: '자유롭게 적어두세요 (자동 저장)'; color: #444; }
+    .memo-status { font-size: 11px; color: var(--dim); }
+    .memo-status.saving { color: #f0a500; } .memo-status.saved { color: #4ade80; } .memo-status.error { color: #d95a5a; }
+
+    /* ⑤ 은퇴준비도 */
+    .ret-top { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+    .prog { height: 26px; background: #262626; border-radius: 13px; overflow: hidden; margin: 10px 0 8px; }
+    .prog div { height: 100%; background: linear-gradient(90deg, #3d8a6a, var(--cash)); border-radius: 13px; min-width: 4px; }
+    .ret-pct { font-size: 14px; color: var(--cash); }
+    .chips { margin-top: 10px; }
+    .chips span { display: inline-block; font-size: 12px; color: #999; background: #222; border: 1px solid #2e2e2e; border-radius: 12px; padding: 3px 10px; margin: 4px 4px 0 0; }
+
+    /* ⑥ AI 점검 */
+    .ai-meta { font-size: 11px; color: var(--dim); margin-bottom: 8px; }
+    .ai-body { font-size: 14px; line-height: 1.75; color: #c4c4c4; white-space: pre-wrap; word-break: break-word; }
+    .ai-body .h { color: var(--yellow); font-weight: 600; }
+    .ai details { margin-top: 12px; border-top: 1px solid #262626; padding-top: 10px; }
+    .ai summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+    .ai details .old { margin-top: 10px; padding-left: 10px; border-left: 2px solid #2e2e2e; }
+
+    /* ── 팝업 ── */
+    .overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.65); display: none; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto; }
+    .overlay.on { display: flex; }
+    .modal { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 18px; width: 100%; max-width: 460px; }
+    .modal h2 { font-size: 15px; font-weight: 500; margin-bottom: 14px; }
+    .f { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #aaa; }
+    .f label { width: 92px; flex: none; }
+    .in {
+      flex: 1; min-width: 0; background: #141414; border: 0.5px solid #333; border-radius: 5px;
+      padding: 7px 9px; color: #eee; font-size: 16px; font-family: inherit; outline: none; text-align: right;
+    }
+    .in:focus { border-color: #4a8ac4; }
+    .in.name { text-align: left; flex: 0 0 38%; }
+    input[type=month].in { text-align: left; color-scheme: dark; }
+    .grp-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin: 16px 0 6px; }
+    .add { font-size: 12px; color: #9cc8f0; background: none; border: none; cursor: pointer; }
+    .acc { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+    .x { background: none; border: none; color: #666; font-size: 15px; cursor: pointer; padding: 0 4px; }
+    .x:hover { color: #d95a5a; }
+    .sum { display: flex; justify-content: space-between; background: #262626; border-radius: 5px; padding: 7px 9px; font-size: 13px; margin-top: 4px; color: #aaa; }
+    .sum b { color: var(--yellow); font-weight: 600; }
+    .modal-err { font-size: 12px; color: #ff8a8a; min-height: 16px; margin-top: 10px; }
+    .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .modal-actions .grow { flex: 1; }
+
+    /* ── 로그인 ── */
+    .auth-overlay { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: none; align-items: center; justify-content: center; padding: 20px; }
+    .auth-overlay.on { display: flex; }
+    .auth-box { background: #1e1e1e; border: 0.5px solid #333; border-radius: 10px; padding: 16px; width: 100%; max-width: 320px; }
+    .auth-title { font-size: 14px; color: #ccc; margin-bottom: 10px; }
+    .auth-input { width: 100%; font-size: 16px; font-family: inherit; background: #141414; color: #eee; border: 0.5px solid #333; border-radius: 6px; padding: 8px 10px; outline: none; }
+    .auth-input:focus { border-color: #4a8ac4; }
+    .auth-err { font-size: 12px; color: #ff8a8a; margin-top: 8px; min-height: 14px; }
+    .auth-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+    @media (max-width: 760px) {
+      body { padding: 12px; }
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .kpi.total { grid-column: 1 / -1; }
+      .kpi .v { font-size: 18px; }
+      .kpi.total .v { font-size: 26px; }
+      .sec { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 로그인 -->
+  <div class="auth-overlay" id="authView">
+    <div class="auth-box">
+      <div class="auth-title">로그인이 필요합니다</div>
+      <input type="email" id="authEmail" class="auth-input" placeholder="이메일" autocomplete="email" spellcheck="false">
+      <input type="password" id="authPassword" class="auth-input" placeholder="비밀번호" autocomplete="current-password" style="margin-top:8px;">
+      <div class="auth-err" id="authErr"></div>
+      <div class="auth-actions"><button class="btn" onclick="loginWithPassword()">로그인</button></div>
+    </div>
+  </div>
+
+  <div id="appRoot" class="wrap" style="display:none">
+    <div class="header">
+      <a class="btn" href="index.html">← 대시보드</a>
+      <h1>우리집 자산관리</h1>
+      <button class="btn" onclick="backupAll(this)">⬇ 백업</button>
+      <button class="btn btn-y" onclick="openLedger()">✎ 이번달 가계부쓰기</button>
+    </div>
+
+    <!-- ① 한눈에 -->
+    <div class="sec">
+      <div class="sec-title">한눈에 <span class="sub" id="baseLabel"></span></div>
+      <div id="kpis"></div>
+    </div>
+
+    <!-- ② 자산 구성 -->
+    <div class="sec">
+      <div class="sec-title">자산 구성</div>
+      <div id="composition"></div>
+      <div class="divider"></div>
+      <div class="sec-title"><span class="grow">입금 · 지출</span>
+        <span class="tog" id="flowTog"><button class="on" data-v="m">월별</button><button data-v="y">연별</button></span>
+      </div>
+      <div class="chart-scroll" id="flowChart"></div>
+      <div class="chart-legend"><span class="sw" style="background:var(--up)"></span>입금 &nbsp; <span class="sw" style="background:var(--down)"></span>지출 &nbsp;· 기록용 숫자이며 총자산 계산에는 들어가지 않아요</div>
+    </div>
+
+    <!-- ③ 총자산 추이 -->
+    <div class="sec">
+      <div class="sec-title"><span class="grow">총자산 추이</span>
+        <span class="tog" id="trendTog"><button class="on" data-v="m">월별</button><button data-v="y">연별</button></span>
+      </div>
+      <div class="chart-scroll" id="trendChart"></div>
+      <div class="chart-legend"><span class="sw" style="background:var(--yellow)"></span>총자산 &nbsp; <span class="sw" style="background:var(--cash)"></span>현금 &nbsp;· <span id="trendNote">점에 마우스를 올리거나 누르면 그때 값</span></div>
+    </div>
+
+    <!-- ④ 메모 -->
+    <div class="sec">
+      <div class="sec-title"><span class="grow">메모</span><span class="memo-status" id="memoStatus"></span></div>
+      <div class="memo" id="assetMemo" contenteditable="true"></div>
+    </div>
+
+    <!-- ⑤ 은퇴준비도 -->
+    <div class="sec">
+      <div class="sec-title">은퇴준비도</div>
+      <div id="retire"></div>
+    </div>
+
+    <!-- ⑥ AI 점검 -->
+    <div class="sec ai">
+      <div class="sec-title">AI 점검 <span class="sub">20년 차 은퇴설계 전문가 관점</span></div>
+      <div id="aiReview"></div>
+    </div>
+  </div>
+
+  <!-- 이번달 가계부쓰기 팝업 -->
+  <div class="overlay" id="ledgerModal">
+    <div class="modal" role="dialog" aria-labelledby="ledgerTitle">
+      <h2 id="ledgerTitle">이번달 가계부쓰기</h2>
+      <div class="f"><label for="fMonth">월 선택</label><input type="month" id="fMonth" class="in"></div>
+      <div class="f"><label for="fIncome">이달 입금</label><input id="fIncome" class="in money" inputmode="numeric" placeholder="0"></div>
+      <div class="f"><label for="fExpense">이달 지출</label><input id="fExpense" class="in money" inputmode="numeric" placeholder="0"></div>
+      <div class="f"><label for="fHouse">부동산 시세</label><input id="fHouse" class="in money" inputmode="numeric" placeholder="0"></div>
+
+      <div class="grp-h"><span>본인 주식계좌</span><button class="add" onclick="addAccRow('mine')">＋ 계좌 추가</button></div>
+      <div id="accMine"></div>
+      <div class="sum"><span>본인 합계 (자동)</span><b id="sumMine">0</b></div>
+
+      <div class="grp-h"><span>배우자 주식계좌</span><button class="add" onclick="addAccRow('spouse')">＋ 계좌 추가</button></div>
+      <div id="accSpouse"></div>
+      <div class="sum"><span>배우자 합계 (자동)</span><b id="sumSpouse">0</b></div>
+
+      <div class="modal-err" id="ledgerErr"></div>
+      <div class="modal-actions">
+        <button class="btn btn-red" id="ledgerDel" onclick="deleteLedger()">이 달 기록 삭제</button>
+        <span class="grow"></span>
+        <button class="btn" onclick="closeLedger()">취소</button>
+        <button class="btn btn-blue" id="ledgerSave" onclick="saveLedger()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets-core.js"></script>
+  <script src="backup.js"></script>
+  <script>
+    // ── Supabase (index.html과 같은 프로젝트·로그인) ──
+    const SUPABASE_URL = 'https://mwpyzhshhrzpmdmmuhzb.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13cHl6aHNoaHJ6cG1kbW11aHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzOTU5NTAsImV4cCI6MjA5Mzk3MTk1MH0.5X-dN79ePafwDgNilGfa1mbYxRDeyBm4cTENcVfDMFU';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const AC = window.AssetCore;
+    const W = AC.fmtWon;
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtPct = p => (p == null ? '—' : p.toFixed(1) + '%');
+    const monthLabel = m => `${m.slice(0, 4)}년 ${+m.slice(5)}월`;
+    const shortMonth = m => `${m.slice(2, 4)}.${m.slice(5)}`;
+
+    // 계좌 색: 본인 파랑 계열, 배우자 초록 계열
+    const MINE_COLORS   = ['#4a8fd9', '#7db4ee', '#2f6fb8', '#a9cdf5', '#1f548f'];
+    const SPOUSE_COLORS = ['#3d9a72', '#6cc49a', '#2a7656', '#a3dcbf', '#1d5940'];
+
+    let RECORDS = [];
+    let REVIEWS = [];
+    const view = { flow: 'm', trend: 'm' };
+
+    // ━━━━━━━━━━ 데이터 ━━━━━━━━━━
+    async function loadAll() {
+      const [m, r] = await Promise.all([
+        db.from('asset_months').select('*').order('month'),
+        db.from('asset_reviews').select('*').order('created_at', { ascending: false }),
+      ]);
+      if (m.error || r.error) { alert('불러오기 실패: ' + (m.error || r.error).message); return; }
+      renderAll(m.data || [], r.data || []);
+    }
+
+    function renderAll(records, reviews) {
+      RECORDS = AC.sortRecords(records);
+      REVIEWS = reviews || [];
+      const s = AC.summary(RECORDS);
+      renderKpis(s);
+      renderComposition(s);
+      renderFlows();
+      renderTrend();
+      renderRetire(s);
+      renderReview();
+    }
+
+    const EMPTY = '<div class="empty">아직 기록이 없어요. 위의 <b style="color:var(--yellow)">이번달 가계부쓰기</b>로 첫 기록을 넣어주세요.</div>';
+
+    // ━━━━━━━━━━ ① 한눈에 ━━━━━━━━━━
+    function renderKpis(s) {
+      if (!s) { $('baseLabel').textContent = ''; $('kpis').innerHTML = EMPTY; return; }
+      $('baseLabel').textContent = '· ' + monthLabel(s.base.month) + ' 기준';
+      const t = s.t;
+      let diffV = '—', diffS = '비교할 이전 기록 없음', diffC = 'var(--text)';
+      if (s.diff != null) {
+        diffV = (s.diff > 0 ? '+' : '') + W(s.diff);
+        diffC = s.diff > 0 ? 'var(--up)' : s.diff < 0 ? 'var(--down)' : 'var(--text)';
+        diffS = (s.diffPct == null ? '' : (s.diffPct > 0 ? '+' : '') + s.diffPct.toFixed(1) + '% · ') + monthLabel(s.prev.month) + ' 대비';
+      }
+      $('kpis').innerHTML = `<div class="kpis">
+        <div class="kpi total"><div class="k">총자산</div><div class="v">${W(t.total)}</div><div class="s">부동산 + 전 계좌</div></div>
+        <div class="kpi"><div class="k">현금 (부동산 제외)</div><div class="v">${W(t.cash)}</div><div class="s">본인 ${W(t.mine)} · 배우자 ${W(t.spouse)}</div></div>
+        <div class="kpi"><div class="k">부동산</div><div class="v">${W(t.realEstate)}</div><div class="s">현 시세</div></div>
+        <div class="kpi"><div class="k">전달 대비</div><div class="v" style="color:${diffC}">${diffV}</div><div class="s">${diffS}</div></div>
+        <div class="kpi"><div class="k">은퇴준비율</div><div class="v" style="color:var(--cash)">${fmtPct(s.ready)}</div><div class="s">현금 ÷ 목표 20억</div></div>
+      </div>`;
+    }
+
+    // ━━━━━━━━━━ ② 자산 구성 (A안) ━━━━━━━━━━
+    function renderComposition(s) {
+      if (!s) { $('composition').innerHTML = EMPTY; return; }
+      const t = s.t, c = AC.composition(t);
+      const mine = (s.base.my_accounts || []).map((a, i) => ({ ...a, amount: +a.amount || 0, color: MINE_COLORS[i % MINE_COLORS.length] }));
+      const sp = (s.base.spouse_accounts || []).map((a, i) => ({ ...a, amount: +a.amount || 0, color: SPOUSE_COLORS[i % SPOUSE_COLORS.length] }));
+      const pctOfCash = v => (t.cash ? (v / t.cash * 100).toFixed(0) + '%' : '0%');
+      const rows = list => list.map(a => `<div class="r"><span><span class="sw" style="background:${a.color}"></span>${esc(a.name)}</span><span>${W(a.amount)}</span></div>`).join('');
+      $('composition').innerHTML = `
+        <div class="split"><div style="width:${c.realPct}%;background:var(--house)"></div><div style="width:${c.cashPct}%;background:var(--yellow)"></div></div>
+        <div class="split-lbl">
+          <span><span class="sw" style="background:var(--house)"></span>부동산 ${W(t.realEstate)} · ${c.realPct.toFixed(0)}%</span>
+          <span><span class="sw" style="background:var(--yellow)"></span>현금 ${W(t.cash)} · ${c.cashPct.toFixed(0)}%</span>
+        </div>
+        <div class="donut-row">
+          ${donutSvg([...mine, ...sp], t.cash)}
+          <div class="legend">
+            <div class="g"><span><span class="sw" style="background:${MINE_COLORS[0]}"></span>본인 주식계좌</span><b>${W(t.mine)} · ${pctOfCash(t.mine)}</b></div>
+            ${rows(mine) || '<div class="r">계좌 없음</div>'}
+            <div class="g"><span><span class="sw" style="background:${SPOUSE_COLORS[0]}"></span>배우자 주식계좌</span><b>${W(t.spouse)} · ${pctOfCash(t.spouse)}</b></div>
+            ${rows(sp) || '<div class="r">계좌 없음</div>'}
+          </div>
+        </div>`;
+    }
+
+    function donutSvg(parts, total) {
+      const R = 54, C = 2 * Math.PI * R, cx = 70;
+      let off = 0, arcs = '';
+      const live = parts.filter(p => p.amount > 0);
+      if (total > 0) for (const p of live) {
+        const len = p.amount / total * C;
+        const gap = live.length > 1 ? Math.min(1.5, len / 3) : 0;
+        arcs += `<circle cx="${cx}" cy="${cx}" r="${R}" fill="none" stroke="${p.color}" stroke-width="20"
+          stroke-dasharray="${Math.max(len - gap, 0)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cx})"><title>${esc(p.name)} ${W(p.amount)}</title></circle>`;
+        off += len;
+      }
+      return `<svg width="140" height="140" viewBox="0 0 140 140" aria-label="현금 구성">
+        <circle cx="${cx}" cy="${cx}" r="${R}" fill="none" stroke="#262626" stroke-width="20"/>${arcs}
+        <text x="${cx}" y="${cx - 6}" text-anchor="middle" fill="#888" font-size="11">현금</text>
+        <text x="${cx}" y="${cx + 12}" text-anchor="middle" fill="#f2c94c" font-size="14" font-weight="600">${W(total)}</text></svg>`;
+    }
+
+    // ━━━━━━━━━━ 차트 공통 ━━━━━━━━━━
+    const axisWon = v => (v >= 1e8 ? +(v / 1e8).toFixed(1) + '억' : W(v));
+    function niceMax(v) {
+      if (v <= 0) return 1;
+      const raw = v / 4, k = Math.pow(10, Math.floor(Math.log10(raw)));
+      const step = [1, 2, 2.5, 5, 10].map(m => m * k).find(s => s >= raw);
+      return step * 4;
+    }
+    // 데이터가 많으면 가로 스크롤: 한 칸 최소 폭을 지키고 오른쪽 끝(최근)에서 시작
+    function chartWidth(el, n, minPer, padX) {
+      const w = el.clientWidth || 600;
+      return Math.max(w, n * minPer + padX);
+    }
+    function mountChart(el, svg, scrolls) {
+      el.innerHTML = svg + '<div class="tip"></div>';
+      if (scrolls) el.scrollLeft = el.scrollWidth;
+    }
+    function bindTip(el, xs, html) {
+      const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), hl = el.querySelector('.hl');
+      const show = e => {
+        const r = svg.getBoundingClientRect(), x = e.clientX - r.left;
+        let i = 0; xs.forEach((v, j) => { if (Math.abs(v - x) < Math.abs(xs[i] - x)) i = j; });
+        tip.innerHTML = html(i); tip.style.display = 'block';
+        const left = xs[i] + 12 + tip.offsetWidth > svg.clientWidth ? xs[i] - tip.offsetWidth - 12 : xs[i] + 12;
+        tip.style.left = Math.max(0, left) + 'px'; tip.style.top = '8px';
+        if (hl) { hl.setAttribute('x1', xs[i]); hl.setAttribute('x2', xs[i]); hl.style.display = ''; }
+      };
+      svg.addEventListener('pointermove', show);
+      svg.addEventListener('pointerdown', show);
+      svg.addEventListener('pointerleave', () => { tip.style.display = 'none'; if (hl) hl.style.display = 'none'; });
+    }
+    function gridLines(top, max, x0, x1, y) {
+      let g = '';
+      for (let i = 0; i <= 4; i++) {
+        const v = max * i / 4, yy = y(v);
+        g += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}" stroke="#262626"/><text x="${x0 - 6}" y="${yy + 4}" fill="#5c5c5c" font-size="10" text-anchor="end">${axisWon(v)}</text>`;
+      }
+      return g;
+    }
+
+    // ━━━━━━━━━━ ② 입금·지출 막대 ━━━━━━━━━━
+    function flowData() {
+      if (view.flow === 'm') return RECORDS.map(r => ({ label: shortMonth(r.month), title: monthLabel(r.month), income: +r.income || 0, expense: +r.expense || 0 }));
+      return AC.yearlyFlows(RECORDS).map(y => ({
+        label: y.year + (y.months < 12 ? ` (${y.months}개월)` : ''),
+        title: y.year + '년' + (y.months < 12 ? ` · ${y.months}개월 진행 중` : ''), income: y.income, expense: y.expense,
+      }));
+    }
+    function renderFlows() {
+      const el = $('flowChart'), d = flowData();
+      if (!d.length) { el.innerHTML = '<div class="empty">기록이 쌓이면 여기에 입금·지출 막대가 나와요.</div>'; return; }
+      const H = 210, padL = 52, padR = 12, top = 22, bottom = 30;
+      const Wd = chartWidth(el, d.length, view.flow === 'm' ? 54 : 110, padL + padR);
+      const max = niceMax(Math.max(...d.flatMap(v => [v.income, v.expense])));
+      const y = v => top + (H - top - bottom) * (1 - v / max);
+      const gw = (Wd - padL - padR) / d.length, bw = Math.min(26, gw * 0.32);
+      const showVals = gw >= 64;
+      let g = gridLines(top, max, padL, Wd - padR, y);
+      const xs = [];
+      d.forEach((v, i) => {
+        const cx = padL + gw * i + gw / 2; xs.push(cx);
+        g += `<rect x="${cx - bw - 2}" y="${y(v.income)}" width="${bw}" height="${y(0) - y(v.income)}" fill="#e0605a" rx="2"/>`;
+        g += `<rect x="${cx + 2}" y="${y(v.expense)}" width="${bw}" height="${y(0) - y(v.expense)}" fill="#5fa0e8" rx="2"/>`;
+        if (showVals) {
+          g += `<text x="${cx - bw / 2 - 2}" y="${y(v.income) - 5}" fill="#d08a86" font-size="10" text-anchor="middle">${W(v.income)}</text>`;
+          g += `<text x="${cx + bw / 2 + 2}" y="${y(v.expense) - 5}" fill="#86b2df" font-size="10" text-anchor="middle">${W(v.expense)}</text>`;
+        }
+        g += `<text x="${cx}" y="${H - 10}" fill="#777" font-size="11" text-anchor="middle">${esc(v.label)}</text>`;
+      });
+      mountChart(el, `<svg width="${Wd}" height="${H}" role="img" aria-label="입금 지출 막대 차트">${g}</svg>`, Wd > el.clientWidth);
+      bindTip(el, xs, i => `<b>${esc(d[i].title)}</b><br><span class="sw" style="background:var(--up)"></span>입금 ${W(d[i].income)}<br><span class="sw" style="background:var(--down)"></span>지출 ${W(d[i].expense)}<br>남은 돈 ${W(d[i].income - d[i].expense)}`);
+    }
+
+    // ━━━━━━━━━━ ③ 총자산 추이 ━━━━━━━━━━
+    function trendData() {
+      if (view.trend === 'm') return RECORDS.map(r => ({ label: shortMonth(r.month), title: monthLabel(r.month), ...AC.monthTotals(r), income: +r.income || 0, expense: +r.expense || 0 }));
+      return AC.yearlyBalances(RECORDS).map(y => ({ label: y.year, title: `${y.year}년 (${+y.month.slice(5)}월 기록)`, ...y }));
+    }
+    function renderTrend() {
+      const el = $('trendChart'), d = trendData();
+      $('trendNote').textContent = view.trend === 'y' ? '연별은 그해 마지막으로 입력한 달의 잔액' : '점에 마우스를 올리거나 누르면 그때 값';
+      if (!d.length) { el.innerHTML = '<div class="empty">기록이 쌓이면 여기에 추이가 그려져요.</div>'; return; }
+      const H = 230, padL = 52, padR = 24, top = 14, bottom = 30;
+      const Wd = chartWidth(el, d.length, view.trend === 'm' ? 44 : 90, padL + padR);
+      const max = niceMax(Math.max(...d.map(v => v.total)));
+      const y = v => top + (H - top - bottom) * (1 - v / max);
+      const n = d.length, x = i => (n === 1 ? (padL + Wd - padR) / 2 : padL + 10 + i * (Wd - padL - padR - 20) / (n - 1));
+      const xs = d.map((_, i) => x(i));
+      const path = key => d.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v[key])).join(' ');
+      const every = Math.max(1, Math.ceil(40 / ((Wd - padL - padR) / n)));
+      let g = gridLines(top, max, padL, Wd - padR, y);
+      g += `<line class="hl" y1="${top}" y2="${H - bottom}" stroke="#444" stroke-dasharray="3 3" style="display:none"/>`;
+      if (n > 1) g += `<path d="${path('total')} L${x(n - 1)} ${y(0)} L${x(0)} ${y(0)}Z" fill="#f2c94c" opacity=".07"/>`;
+      g += `<path d="${path('total')}" stroke="#f2c94c" stroke-width="2" fill="none"/><path d="${path('cash')}" stroke="#5fc08f" stroke-width="2" fill="none"/>`;
+      d.forEach((v, i) => {
+        g += `<circle cx="${x(i)}" cy="${y(v.total)}" r="3.5" fill="#f2c94c"/><circle cx="${x(i)}" cy="${y(v.cash)}" r="3" fill="#5fc08f"/>`;
+        if (i % every === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 10}" fill="#777" font-size="11" text-anchor="middle">${esc(v.label)}</text>`;
+      });
+      const last = d[n - 1];
+      g += `<text x="${x(n - 1)}" y="${y(last.total) - 9}" fill="#f2c94c" font-size="11" text-anchor="${n === 1 ? 'middle' : 'end'}">${W(last.total)}</text>`;
+      mountChart(el, `<svg width="${Wd}" height="${H}" role="img" aria-label="총자산 추이 차트">${g}</svg>`, Wd > el.clientWidth);
+      bindTip(el, xs, i => {
+        const v = d[i];
+        return `<b>${esc(v.title)}</b><br><span class="sw" style="background:var(--yellow)"></span>총자산 ${W(v.total)}<br><span class="sw" style="background:var(--cash)"></span>현금 ${W(v.cash)}<br><span class="sw" style="background:var(--house)"></span>부동산 ${W(v.realEstate)}` +
+          (view.trend === 'm' ? `<br><span style="color:#888">입금 ${W(v.income)} · 지출 ${W(v.expense)}</span>` : '');
+      });
+    }
+
+    // 전환 버튼
+    for (const [id, key, fn] of [['flowTog', 'flow', () => renderFlows()], ['trendTog', 'trend', () => renderTrend()]]) {
+      $(id).addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        view[key] = b.dataset.v;
+        $(id).querySelectorAll('button').forEach(z => z.classList.toggle('on', z === b));
+        fn();
+      });
+    }
+    let resizeT;
+    window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { renderFlows(); renderTrend(); }, 150); });
+
+    // ━━━━━━━━━━ ⑤ 은퇴준비도 ━━━━━━━━━━
+    const RETIRE_ITEMS = ['월생활비', '의료비', '여행비', '취미·운동비', '세금', '기타 비상금'];
+    function renderRetire(s) {
+      const cash = s ? s.t.cash : 0, pct = cash / AC.GOAL * 100, left = AC.GOAL - cash;
+      $('retire').innerHTML = `
+        <div class="ret-top"><span>현금 <b>${W(cash)}</b></span><span style="color:var(--muted)">목표 은퇴현금 <b style="color:var(--text)">20억</b></span></div>
+        <div class="prog"><div style="width:${Math.min(pct, 100)}%"></div></div>
+        <div class="ret-pct">${pct.toFixed(1)}% 달성 · ${left > 0 ? '남은 금액 ' + W(left) : '목표 달성!'}</div>
+        <div class="chips">${RETIRE_ITEMS.map(t => `<span>${t}</span>`).join('')}</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:8px">목표 20억은 위 지출을 예상해서 정한 금액이에요.</div>`;
+    }
+
+    // ━━━━━━━━━━ ⑥ AI 점검 ━━━━━━━━━━
+    // Claude가 "자산 점검해줘" 요청을 받으면 asset_reviews에 글을 넣는다. 【...】로 시작하는 줄은 소제목.
+    const reviewBody = txt => esc(txt).split('\n').map(l => (/^【.*】/.test(l.trim()) ? `<span class="h">${l}</span>` : l)).join('\n');
+    const reviewMeta = r => `${new Date(r.created_at).toLocaleDateString('ko-KR')} 점검` + (r.base_month ? ` · ${monthLabel(r.base_month)} 기록 기준` : '');
+    function renderReview() {
+      if (!REVIEWS.length) {
+        $('aiReview').innerHTML = `<div class="empty">Claude에게 <b style="color:var(--text)">"자산 점검해줘"</b>라고 말하면 여기에 분석과 조언이 올라와요.</div>`;
+        return;
+      }
+      const [cur, ...old] = REVIEWS;
+      $('aiReview').innerHTML = `<div class="ai-meta">${reviewMeta(cur)}</div><div class="ai-body">${reviewBody(cur.content)}</div>` +
+        (old.length ? `<details><summary>지난 점검 ${old.length}건</summary>${old.map(r => `<div class="old"><div class="ai-meta">${reviewMeta(r)}</div><div class="ai-body">${reviewBody(r.content)}</div></div>`).join('')}</details>` : '');
+    }
+
+    // ━━━━━━━━━━ ④ 메모 (study_notes id 'assetnote') ━━━━━━━━━━
+    function initMemo() {
+      const area = $('assetMemo'), sts = $('memoStatus');
+      const show = (cls, msg) => { sts.className = 'memo-status ' + cls; sts.textContent = msg; };
+      let t;
+      area.addEventListener('paste', e => {
+        e.preventDefault();
+        document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+      });
+      area.addEventListener('input', () => {
+        clearTimeout(t); show('saving', '저장 중...');
+        t = setTimeout(async () => {
+          const { error } = await db.from('study_notes').upsert({ id: 'assetnote', content: area.innerHTML, updated_at: new Date().toISOString() });
+          if (error) { console.error(error); show('error', '저장 실패'); return; }
+          show('saved', '✓ 저장됨'); setTimeout(() => show('', ''), 1800);
+        }, 800);
+      });
+      db.from('study_notes').select('content').eq('id', 'assetnote').maybeSingle().then(({ data }) => { if (data?.content) area.innerHTML = data.content; });
+    }
+
+    // ━━━━━━━━━━ 이번달 가계부쓰기 팝업 ━━━━━━━━━━
+    const thisMonth = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+    const fmtInput = n => (n ? Number(n).toLocaleString('en-US') : '');
+
+    // 금액 칸: 입력하는 대로 콤마를 넣고, 커서는 같은 숫자 위치에 둔다
+    document.addEventListener('input', e => {
+      const el = e.target;
+      if (!el.classList || !el.classList.contains('money')) return;
+      const pos = el.selectionStart, digitsBefore = el.value.slice(0, pos).replace(/[^0-9]/g, '').length;
+      el.value = fmtInput(AC.parseWon(el.value));
+      let p = 0, seen = 0;
+      while (p < el.value.length && seen < digitsBefore) { if (/[0-9]/.test(el.value[p])) seen++; p++; }
+      el.setSelectionRange(p, p);
+      updateSums();
+    });
+
+    function accRowHtml(a) {
+      return `<div class="acc"><input class="in name" placeholder="계좌 이름" value="${esc(a.name)}" spellcheck="false">` +
+        `<input class="in money" inputmode="numeric" placeholder="0" value="${fmtInput(a.amount)}">` +
+        `<button class="x" title="계좌 삭제" onclick="this.parentElement.remove(); updateSums()">✕</button></div>`;
+    }
+    function addAccRow(group) {
+      const box = group === 'mine' ? $('accMine') : $('accSpouse');
+      box.insertAdjacentHTML('beforeend', accRowHtml({ name: '', amount: 0 }));
+      box.lastElementChild.querySelector('.name').focus();
+    }
+    function readAccs(box) {
+      return [...box.querySelectorAll('.acc')].map(row => ({
+        name: row.querySelector('.name').value.trim(),
+        amount: AC.parseWon(row.querySelector('.money').value),
+      })).filter(a => a.name || a.amount).map(a => ({ name: a.name || '계좌', amount: a.amount }));
+    }
+    function updateSums() {
+      const s = list => list.reduce((t, a) => t + a.amount, 0);
+      $('sumMine').textContent = s(readAccs($('accMine'))).toLocaleString('en-US');
+      $('sumSpouse').textContent = s(readAccs($('accSpouse'))).toLocaleString('en-US');
+    }
+    function fillLedger(month) {
+      const r = AC.prefillFor(month, RECORDS);
+      const exists = RECORDS.some(x => x.month === month);
+      $('ledgerTitle').textContent = exists ? `${monthLabel(month)} 가계부 수정` : '이번달 가계부쓰기';
+      $('ledgerDel').style.display = exists ? '' : 'none';
+      $('fIncome').value = fmtInput(r.income);
+      $('fExpense').value = fmtInput(r.expense);
+      $('fHouse').value = fmtInput(r.real_estate);
+      $('accMine').innerHTML = (r.my_accounts || []).map(accRowHtml).join('');
+      $('accSpouse').innerHTML = (r.spouse_accounts || []).map(accRowHtml).join('');
+      $('ledgerErr').textContent = '';
+      updateSums();
+    }
+    function openLedger() {
+      $('fMonth').value = thisMonth();
+      fillLedger($('fMonth').value);
+      $('ledgerModal').classList.add('on');
+    }
+    function closeLedger() { $('ledgerModal').classList.remove('on'); }
+    $('fMonth').addEventListener('change', () => { if (/^\d{4}-\d{2}$/.test($('fMonth').value)) fillLedger($('fMonth').value); });
+    $('ledgerModal').addEventListener('click', e => { if (e.target.id === 'ledgerModal') closeLedger(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('ledgerModal').classList.contains('on')) closeLedger(); });
+
+    async function saveLedger() {
+      const month = $('fMonth').value;
+      if (!/^\d{4}-\d{2}$/.test(month)) { $('ledgerErr').textContent = '월을 선택해주세요.'; return; }
+      const row = {
+        month,
+        income: AC.parseWon($('fIncome').value),
+        expense: AC.parseWon($('fExpense').value),
+        real_estate: AC.parseWon($('fHouse').value),
+        my_accounts: readAccs($('accMine')),
+        spouse_accounts: readAccs($('accSpouse')),
+        updated_at: new Date().toISOString(),
+      };
+      const btn = $('ledgerSave'); btn.disabled = true; $('ledgerErr').textContent = '저장 중...';
+      const { error } = await db.from('asset_months').upsert(row, { onConflict: 'month' });
+      btn.disabled = false;
+      if (error) { $('ledgerErr').textContent = '저장 실패: ' + error.message; return; }
+      closeLedger();
+      await loadAll();
+    }
+    async function deleteLedger() {
+      const month = $('fMonth').value;
+      if (!confirm(`${monthLabel(month)} 기록을 삭제할까요? 되돌릴 수 없어요.`)) return;
+      const { error } = await db.from('asset_months').delete().eq('month', month);
+      if (error) { $('ledgerErr').textContent = '삭제 실패: ' + error.message; return; }
+      closeLedger();
+      await loadAll();
+    }
+
+    // ━━━━━━━━━━ 로그인 ━━━━━━━━━━
+    let appStarted = false;
+    function handleAuthState(session) {
+      if (session) {
+        $('authView').classList.remove('on');
+        $('appRoot').style.display = '';
+        if (!appStarted) { appStarted = true; setTimeout(() => { initMemo(); loadAll(); }, 0); }
+      } else {
+        if (appStarted) { location.reload(); return; }
+        $('appRoot').style.display = 'none';
+        $('authView').classList.add('on');
+      }
+    }
+    async function loginWithPassword() {
+      const email = $('authEmail').value.trim(), password = $('authPassword').value, err = $('authErr');
+      if (!email || !password) { err.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+      err.textContent = '로그인 중...';
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      err.textContent = error ? '로그인 실패: 이메일 또는 비밀번호를 확인해주세요.' : '';
+    }
+    $('authPassword').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loginWithPassword(); } });
+    $('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('authPassword').focus(); } });
+
+    (async () => {
+      const { data: { session } } = await db.auth.getSession();
+      handleAuthState(session);
+      db.auth.onAuthStateChange((_e, s) => handleAuthState(s));
+    })();
+  </script>
+</body>
+</html>
