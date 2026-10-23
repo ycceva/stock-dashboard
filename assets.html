@@ -58,9 +58,10 @@
     .kpi.total .v { font-size: 27px; color: var(--yellow); }
 
     /* ② 자산 구성 */
-    .split { height: 12px; display: flex; border-radius: 6px; overflow: hidden; background: #262626; }
-    .split div { height: 100%; }
-    .split-lbl { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: #aaa; margin: 6px 0 18px; flex-wrap: wrap; }
+    .comp { display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1.3fr); gap: 28px; align-items: start; }
+    .comp-div { background: #333; align-self: stretch; }
+    .comp-h { font-size: 13px; color: #ccc; margin-bottom: 12px; }
+    .comp-h .sub { color: var(--dim); font-size: 12px; margin-left: 6px; }
     .donut-row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
     .donut-row svg { flex: none; }
     .legend { flex: 1; min-width: 240px; max-width: 420px; font-size: 13px; }
@@ -123,7 +124,7 @@
     }
     .in:focus { border-color: #4a8ac4; }
     .in.name { text-align: left; flex: 0 0 38%; }
-    input[type=month].in { text-align: left; color-scheme: dark; }
+    select.in.sel { text-align: left; color-scheme: dark; cursor: pointer; }
     .grp-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin: 16px 0 6px; }
     .add { font-size: 12px; color: #9cc8f0; background: none; border: none; cursor: pointer; }
     .acc { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
@@ -152,6 +153,8 @@
       .kpi .v { font-size: 18px; }
       .kpi.total .v { font-size: 26px; }
       .sec { padding: 12px; }
+      .comp { grid-template-columns: 1fr; gap: 18px; }
+      .comp-div { height: 1px; }
     }
   </style>
 </head>
@@ -226,7 +229,8 @@
   <div class="overlay" id="ledgerModal">
     <div class="modal" role="dialog" aria-labelledby="ledgerTitle">
       <h2 id="ledgerTitle">이번달 가계부쓰기</h2>
-      <div class="f"><label for="fMonth">월 선택</label><input type="month" id="fMonth" class="in"></div>
+      <div class="f"><label for="fYear">월 선택</label>
+        <select id="fYear" class="in sel"></select><select id="fMon" class="in sel"></select></div>
       <div class="f"><label for="fIncome">이달 입금</label><input id="fIncome" class="in money" inputmode="numeric" placeholder="0"></div>
       <div class="f"><label for="fExpense">이달 지출</label><input id="fExpense" class="in money" inputmode="numeric" placeholder="0"></div>
       <div class="f"><label for="fHouse">부동산 시세</label><input id="fHouse" class="in money" inputmode="numeric" placeholder="0"></div>
@@ -325,24 +329,35 @@
       const sp = (s.base.spouse_accounts || []).map((a, i) => ({ ...a, amount: +a.amount || 0, color: SPOUSE_COLORS[i % SPOUSE_COLORS.length] }));
       const pctOfCash = v => (t.cash ? (v / t.cash * 100).toFixed(0) + '%' : '0%');
       const rows = list => list.map(a => `<div class="r"><span><span class="sw" style="background:${a.color}"></span>${esc(a.name)}</span><span>${W(a.amount)}</span></div>`).join('');
-      $('composition').innerHTML = `
-        <div class="split"><div style="width:${c.realPct}%;background:var(--house)"></div><div style="width:${c.cashPct}%;background:var(--yellow)"></div></div>
-        <div class="split-lbl">
-          <span><span class="sw" style="background:var(--house)"></span>부동산 ${W(t.realEstate)} · ${c.realPct.toFixed(0)}%</span>
-          <span><span class="sw" style="background:var(--yellow)"></span>현금 ${W(t.cash)} · ${c.cashPct.toFixed(0)}%</span>
-        </div>
+      const whole = [{ name: '부동산', amount: t.realEstate, color: '#5b6b80' }, { name: '현금', amount: t.cash, color: '#f2c94c' }];
+      $('composition').innerHTML = `<div class="comp">
+       <div>
+        <div class="comp-h">총자산 구성<span class="sub">부동산 : 현금</span></div>
         <div class="donut-row">
-          ${donutSvg([...mine, ...sp], t.cash)}
+          ${donutSvg(whole, t.total, '총자산', '#e2e2e2')}
+          <div class="legend">
+            <div class="g"><span><span class="sw" style="background:var(--house)"></span>부동산</span><b>${W(t.realEstate)} · ${c.realPct.toFixed(0)}%</b></div>
+            <div class="g"><span><span class="sw" style="background:var(--yellow)"></span>현금</span><b>${W(t.cash)} · ${c.cashPct.toFixed(0)}%</b></div>
+          </div>
+        </div>
+       </div>
+       <div class="comp-div"></div>
+       <div>
+        <div class="comp-h"><span class="sw" style="background:var(--yellow)"></span>현금 구성<span class="sub">현금 ${W(t.cash)}을 100%로</span></div>
+        <div class="donut-row">
+          ${donutSvg([...mine, ...sp], t.cash, '현금', '#f2c94c')}
           <div class="legend">
             <div class="g"><span><span class="sw" style="background:${MINE_COLORS[0]}"></span>본인 주식계좌</span><b>${W(t.mine)} · ${pctOfCash(t.mine)}</b></div>
             ${rows(mine) || '<div class="r">계좌 없음</div>'}
             <div class="g"><span><span class="sw" style="background:${SPOUSE_COLORS[0]}"></span>배우자 주식계좌</span><b>${W(t.spouse)} · ${pctOfCash(t.spouse)}</b></div>
             ${rows(sp) || '<div class="r">계좌 없음</div>'}
           </div>
-        </div>`;
+        </div>
+       </div>
+      </div>`;
     }
 
-    function donutSvg(parts, total) {
+    function donutSvg(parts, total, label, labelColor) {
       const R = 54, C = 2 * Math.PI * R, cx = 70;
       let off = 0, arcs = '';
       const live = parts.filter(p => p.amount > 0);
@@ -353,10 +368,10 @@
           stroke-dasharray="${Math.max(len - gap, 0)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cx})"><title>${esc(p.name)} ${W(p.amount)}</title></circle>`;
         off += len;
       }
-      return `<svg width="140" height="140" viewBox="0 0 140 140" aria-label="현금 구성">
+      return `<svg width="140" height="140" viewBox="0 0 140 140" aria-label="${label} 구성">
         <circle cx="${cx}" cy="${cx}" r="${R}" fill="none" stroke="#262626" stroke-width="20"/>${arcs}
-        <text x="${cx}" y="${cx - 6}" text-anchor="middle" fill="#888" font-size="11">현금</text>
-        <text x="${cx}" y="${cx + 12}" text-anchor="middle" fill="#f2c94c" font-size="14" font-weight="600">${W(total)}</text></svg>`;
+        <text x="${cx}" y="${cx - 6}" text-anchor="middle" fill="#888" font-size="11">${label}</text>
+        <text x="${cx}" y="${cx + 12}" text-anchor="middle" fill="${labelColor}" font-size="14" font-weight="600">${W(total)}</text></svg>`;
     }
 
     // ━━━━━━━━━━ 차트 공통 ━━━━━━━━━━
@@ -450,26 +465,29 @@
       // 총자산(10억대)과 현금(1억대)은 크기가 달라 한 축에 그리면 둘 다 평평해진다 → 위아래 두 칸, 칸마다 자기 범위
       const padL = 56, padR = 24, bottom = 30;
       const panels = [
-        { key: 'total', name: '총자산', color: '#f2c94c', top: 22, h: 130 },
-        { key: 'cash',  name: '현금',   color: '#5fc08f', top: 186, h: 90 },
+        { key: 'total', name: '총자산', color: '#f2c94c', top: 38, h: 118 },
+        { key: 'cash',  name: '현금',   color: '#5fc08f', top: 206, h: 84 },
       ];
-      const H = 276 + bottom;
+      const H = 290 + bottom;
       const Wd = chartWidth(el, d.length, view.trend === 'm' ? 44 : 90, padL + padR);
       const n = d.length, x = i => (n === 1 ? (padL + Wd - padR) / 2 : padL + 10 + i * (Wd - padL - padR - 20) / (n - 1));
       const xs = d.map((_, i) => x(i));
       const every = Math.max(1, Math.ceil(40 / ((Wd - padL - padR) / n)));
+      const valEvery = Math.max(1, Math.ceil(84 / ((Wd - padL - padR) / n))); // 금액 글자 폭 ≈ 80px
+      const anchor = i => (n === 1 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle');
       let g = `<line class="hl" y1="${panels[0].top}" y2="${H - bottom}" stroke="#444" stroke-dasharray="3 3" style="display:none"/>`;
       for (const p of panels) {
         const vals = d.map(v => v[p.key]), r = niceRange(Math.min(...vals), Math.max(...vals));
         const y = v => p.top + p.h * (1 - (v - r.lo) / (r.hi - r.lo));
         g += gridLines(r.lo, r.hi, r.step, padL, Wd - padR, y);
-        g += `<text x="${padL}" y="${p.top - 8}" fill="${p.color}" font-size="11">${p.name}</text>`;
+        g += `<text x="${padL}" y="${p.top - 24}" fill="${p.color}" font-size="11">${p.name}</text>`;
         const path = d.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v[p.key])).join(' ');
         if (n > 1) g += `<path d="${path} L${x(n - 1)} ${p.top + p.h} L${x(0)} ${p.top + p.h}Z" fill="${p.color}" opacity=".07"/>`;
         g += `<path d="${path}" stroke="${p.color}" stroke-width="2" fill="none"/>`;
         d.forEach((v, i) => { g += `<circle cx="${x(i)}" cy="${y(v[p.key])}" r="3.2" fill="${p.color}"/>`; });
-        const last = d[n - 1][p.key];
-        g += `<text x="${x(n - 1)}" y="${y(last) - 8}" fill="${p.color}" font-size="11" text-anchor="${n === 1 ? 'middle' : 'end'}">${W(last)}</text>`;
+        d.forEach((v, i) => {
+          if ((n - 1 - i) % valEvery === 0) g += `<text x="${x(i)}" y="${y(v[p.key]) - 9}" fill="${p.color}" font-size="11" text-anchor="${anchor(i)}">${W(v[p.key])}</text>`;
+        });
       }
       d.forEach((v, i) => {
         if (i % every === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 10}" fill="#777" font-size="11" text-anchor="middle">${esc(v.label)}</text>`;
@@ -598,19 +616,34 @@
       $('ledgerErr').textContent = '';
       updateSums();
     }
+    // 연·월 선택: 연도는 기록이 있는 해와 최근 5년~내년, 월 목록에는 입력한 달에 ✓ 표시
+    const ledgerMonth = () => $('fYear').value + '-' + $('fMon').value;
+    function fillMonthOptions(keep) {
+      const y = $('fYear').value, done = new Set(RECORDS.filter(r => r.month.startsWith(y + '-')).map(r => r.month.slice(5)));
+      $('fMon').innerHTML = Array.from({ length: 12 }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0');
+        return `<option value="${mm}">${i + 1}월${done.has(mm) ? ' ✓ 입력됨' : ''}</option>`;
+      }).join('');
+      $('fMon').value = keep;
+    }
     function openLedger() {
-      $('fMonth').value = thisMonth();
-      fillLedger($('fMonth').value);
+      const [cy, cm] = thisMonth().split('-'), first = RECORDS.length ? +RECORDS[0].month.slice(0, 4) : +cy;
+      const years = [];
+      for (let y = +cy + 1; y >= Math.min(first, +cy - 5); y--) years.push(y);
+      $('fYear').innerHTML = years.map(y => `<option value="${y}">${y}년</option>`).join('');
+      $('fYear').value = cy;
+      fillMonthOptions(cm);
+      fillLedger(ledgerMonth());
       $('ledgerModal').classList.add('on');
     }
     function closeLedger() { $('ledgerModal').classList.remove('on'); }
-    $('fMonth').addEventListener('change', () => { if (/^\d{4}-\d{2}$/.test($('fMonth').value)) fillLedger($('fMonth').value); });
+    $('fYear').addEventListener('change', () => { fillMonthOptions($('fMon').value); fillLedger(ledgerMonth()); });
+    $('fMon').addEventListener('change', () => fillLedger(ledgerMonth()));
     $('ledgerModal').addEventListener('click', e => { if (e.target.id === 'ledgerModal') closeLedger(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('ledgerModal').classList.contains('on')) closeLedger(); });
 
     async function saveLedger() {
-      const month = $('fMonth').value;
-      if (!/^\d{4}-\d{2}$/.test(month)) { $('ledgerErr').textContent = '월을 선택해주세요.'; return; }
+      const month = ledgerMonth();
       const row = {
         month,
         income: AC.parseWon($('fIncome').value),
@@ -628,7 +661,7 @@
       await loadAll();
     }
     async function deleteLedger() {
-      const month = $('fMonth').value;
+      const month = ledgerMonth();
       if (!confirm(`${monthLabel(month)} 기록을 삭제할까요? 되돌릴 수 없어요.`)) return;
       const { error } = await db.from('asset_months').delete().eq('month', month);
       if (error) { $('ledgerErr').textContent = '삭제 실패: ' + error.message; return; }
