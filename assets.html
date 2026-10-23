@@ -63,7 +63,7 @@
     .split-lbl { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: #aaa; margin: 6px 0 18px; flex-wrap: wrap; }
     .donut-row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
     .donut-row svg { flex: none; }
-    .legend { flex: 1; min-width: 240px; font-size: 13px; }
+    .legend { flex: 1; min-width: 240px; max-width: 420px; font-size: 13px; }
     .legend .g { display: flex; justify-content: space-between; gap: 10px; color: #ddd; margin: 10px 0 4px; }
     .legend .g:first-child { margin-top: 0; }
     .legend .r { display: flex; justify-content: space-between; gap: 10px; color: #aaa; padding: 2px 0 2px 15px; }
@@ -360,7 +360,14 @@
     }
 
     // ━━━━━━━━━━ 차트 공통 ━━━━━━━━━━
-    const axisWon = v => (v >= 1e8 ? +(v / 1e8).toFixed(1) + '억' : W(v));
+    const axisWon = v => (v >= 1e8 ? +(v / 1e8).toFixed(2) + '억' : W(v));
+    // 값 범위에 맞춘 눈금 (0에서 시작하지 않아도 됨 — 선 차트용)
+    function niceRange(lo, hi) {
+      if (hi === lo) { const pad = Math.max(Math.abs(hi) * 0.02, 1e6); lo -= pad; hi += pad; }
+      const raw = (hi - lo) / 4, k = Math.pow(10, Math.floor(Math.log10(raw)));
+      const step = [1, 2, 2.5, 5, 10].map(m => m * k).find(s => s >= raw);
+      return { lo: Math.max(0, Math.floor(lo / step) * step), hi: Math.ceil(hi / step) * step, step };
+    }
     function niceMax(v) {
       if (v <= 0) return 1;
       const raw = v / 4, k = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -390,10 +397,10 @@
       svg.addEventListener('pointerdown', show);
       svg.addEventListener('pointerleave', () => { tip.style.display = 'none'; if (hl) hl.style.display = 'none'; });
     }
-    function gridLines(top, max, x0, x1, y) {
+    function gridLines(lo, hi, step, x0, x1, y) {
       let g = '';
-      for (let i = 0; i <= 4; i++) {
-        const v = max * i / 4, yy = y(v);
+      for (let v = lo; v <= hi + step / 2; v += step) {
+        const yy = y(v);
         g += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}" stroke="#262626"/><text x="${x0 - 6}" y="${yy + 4}" fill="#5c5c5c" font-size="10" text-anchor="end">${axisWon(v)}</text>`;
       }
       return g;
@@ -416,7 +423,7 @@
       const y = v => top + (H - top - bottom) * (1 - v / max);
       const gw = (Wd - padL - padR) / d.length, bw = Math.min(26, gw * 0.32);
       const showVals = gw >= 64;
-      let g = gridLines(top, max, padL, Wd - padR, y);
+      let g = gridLines(0, max, max / 4, padL, Wd - padR, y);
       const xs = [];
       d.forEach((v, i) => {
         const cx = padL + gw * i + gw / 2; xs.push(cx);
@@ -441,24 +448,33 @@
       const el = $('trendChart'), d = trendData();
       $('trendNote').textContent = view.trend === 'y' ? '연별은 그해 마지막으로 입력한 달의 잔액' : '점에 마우스를 올리거나 누르면 그때 값';
       if (!d.length) { el.innerHTML = '<div class="empty">기록이 쌓이면 여기에 추이가 그려져요.</div>'; return; }
-      const H = 230, padL = 52, padR = 24, top = 14, bottom = 30;
+      // 총자산(10억대)과 현금(1억대)은 크기가 달라 한 축에 그리면 둘 다 평평해진다 → 위아래 두 칸, 칸마다 자기 범위
+      const padL = 56, padR = 24, bottom = 30;
+      const panels = [
+        { key: 'total', name: '총자산', color: '#f2c94c', top: 22, h: 130 },
+        { key: 'cash',  name: '현금',   color: '#5fc08f', top: 186, h: 90 },
+      ];
+      const H = 276 + bottom;
       const Wd = chartWidth(el, d.length, view.trend === 'm' ? 44 : 90, padL + padR);
-      const max = niceMax(Math.max(...d.map(v => v.total)));
-      const y = v => top + (H - top - bottom) * (1 - v / max);
       const n = d.length, x = i => (n === 1 ? (padL + Wd - padR) / 2 : padL + 10 + i * (Wd - padL - padR - 20) / (n - 1));
       const xs = d.map((_, i) => x(i));
-      const path = key => d.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v[key])).join(' ');
       const every = Math.max(1, Math.ceil(40 / ((Wd - padL - padR) / n)));
-      let g = gridLines(top, max, padL, Wd - padR, y);
-      g += `<line class="hl" y1="${top}" y2="${H - bottom}" stroke="#444" stroke-dasharray="3 3" style="display:none"/>`;
-      if (n > 1) g += `<path d="${path('total')} L${x(n - 1)} ${y(0)} L${x(0)} ${y(0)}Z" fill="#f2c94c" opacity=".07"/>`;
-      g += `<path d="${path('total')}" stroke="#f2c94c" stroke-width="2" fill="none"/><path d="${path('cash')}" stroke="#5fc08f" stroke-width="2" fill="none"/>`;
+      let g = `<line class="hl" y1="${panels[0].top}" y2="${H - bottom}" stroke="#444" stroke-dasharray="3 3" style="display:none"/>`;
+      for (const p of panels) {
+        const vals = d.map(v => v[p.key]), r = niceRange(Math.min(...vals), Math.max(...vals));
+        const y = v => p.top + p.h * (1 - (v - r.lo) / (r.hi - r.lo));
+        g += gridLines(r.lo, r.hi, r.step, padL, Wd - padR, y);
+        g += `<text x="${padL}" y="${p.top - 8}" fill="${p.color}" font-size="11">${p.name}</text>`;
+        const path = d.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v[p.key])).join(' ');
+        if (n > 1) g += `<path d="${path} L${x(n - 1)} ${p.top + p.h} L${x(0)} ${p.top + p.h}Z" fill="${p.color}" opacity=".07"/>`;
+        g += `<path d="${path}" stroke="${p.color}" stroke-width="2" fill="none"/>`;
+        d.forEach((v, i) => { g += `<circle cx="${x(i)}" cy="${y(v[p.key])}" r="3.2" fill="${p.color}"/>`; });
+        const last = d[n - 1][p.key];
+        g += `<text x="${x(n - 1)}" y="${y(last) - 8}" fill="${p.color}" font-size="11" text-anchor="${n === 1 ? 'middle' : 'end'}">${W(last)}</text>`;
+      }
       d.forEach((v, i) => {
-        g += `<circle cx="${x(i)}" cy="${y(v.total)}" r="3.5" fill="#f2c94c"/><circle cx="${x(i)}" cy="${y(v.cash)}" r="3" fill="#5fc08f"/>`;
         if (i % every === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 10}" fill="#777" font-size="11" text-anchor="middle">${esc(v.label)}</text>`;
       });
-      const last = d[n - 1];
-      g += `<text x="${x(n - 1)}" y="${y(last.total) - 9}" fill="#f2c94c" font-size="11" text-anchor="${n === 1 ? 'middle' : 'end'}">${W(last.total)}</text>`;
       mountChart(el, `<svg width="${Wd}" height="${H}" role="img" aria-label="총자산 추이 차트">${g}</svg>`, Wd > el.clientWidth);
       bindTip(el, xs, i => {
         const v = d[i];
