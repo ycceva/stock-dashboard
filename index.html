@@ -442,7 +442,7 @@
     </div>
   </div>
 
-  <!-- 미국 국채 금리 (FRED 10년·2년·3개월) -->
+  <!-- 미국 국채 금리 (FRED 10년·1년·3개월) -->
   <div class="section">
     <div class="section-title rates-head">
       <span>미국 국채 금리 · 장단기</span>
@@ -451,7 +451,7 @@
     <div class="rates-wrap">
       <div class="rates-legend" id="ratesLegend"></div>
       <div id="ratesChart"><div class="rates-msg">금리 불러오는 중...</div></div>
-      <div class="rates-foot" id="ratesFoot">출처: FRED (DGS10 · DGS2 · DGS3MO), 일별 · 차트에 마우스를 올리거나 누르면 그날 값</div>
+      <div class="rates-foot" id="ratesFoot">출처: FRED (DGS10 · DGS1 · DGS3MO), 일별 · 차트에 마우스를 올리거나 누르면 그날 값</div>
     </div>
   </div>
 
@@ -1724,13 +1724,13 @@
     }
 
     // ════════════════════════════════════════════════════════
-    //  미국 국채 금리 차트 (FRED: 10년·2년·3개월)
+    //  미국 국채 금리 차트 (FRED: 10년·1년·3개월)
     //  Supabase 함수 fred-rates가 FRED에서 받아 넘겨준다(API 키는 함수 비밀값).
     //  처음엔 최근 10년치만 받고, '전체'를 누를 때 1962년부터 다시 받는다.
     // ════════════════════════════════════════════════════════
     const RATE_SERIES = [
       { id: 'DGS10',  name: '10년',  color: '#3987e5' },
-      { id: 'DGS2',   name: '2년',   color: '#d95926' },
+      { id: 'DGS1',   name: '1년',   color: '#d95926' },
       { id: 'DGS3MO', name: '3개월', color: '#199e70' },
     ];
     // [코드, 버튼 글자, 개월 수(0 = 전체)]
@@ -1867,7 +1867,7 @@
       document.getElementById('ratesLegend').innerHTML =
         `<span class="date">${dates[i]}</span>` +
         RATE_SERIES.map((s, k) => `<span><i style="background:${s.color}"></i>${s.name} <b>${pct(v[k])}</b></span>`).join('') +
-        spread('10년-2년', v[0], v[1]) + spread('10년-3개월', v[0], v[2]);
+        spread('10년-1년', v[0], v[1]) + spread('10년-3개월', v[0], v[2]);
     }
 
     // ════════════════════════════════════════════════════════

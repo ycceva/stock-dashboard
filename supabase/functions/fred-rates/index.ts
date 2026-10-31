@@ -1,11 +1,11 @@
-// FRED 미국 국채 금리(10년·2년·3개월)를 대시보드에 넘겨주는 함수.
+// FRED 미국 국채 금리(10년·1년·3개월)를 대시보드에 넘겨주는 함수.
 // FRED는 브라우저 직접 호출(CORS)을 막고, API 키를 공개 페이지에 둘 수 없어서 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 FRED_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
 // (verify_jwt는 페이지에 공개된 anon 키도 통과시키므로 사용자 세션을 따로 확인한다)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SERIES = ["DGS10", "DGS2", "DGS3MO"];
+const SERIES = ["DGS10", "DGS1", "DGS3MO"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
