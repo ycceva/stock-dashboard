@@ -442,10 +442,10 @@
     </div>
   </div>
 
-  <!-- 미국 국채 금리 (FRED 10년·1년·3개월) -->
+  <!-- 미국 장단기 금리차 (FRED 10년-1년, 10년-3개월) -->
   <div class="section">
     <div class="section-title rates-head">
-      <span>미국 국채 금리 · 장단기</span>
+      <span>미국 장단기 금리차</span>
       <span class="rates-range" id="ratesRange"></span>
     </div>
     <div class="rates-wrap">
@@ -1724,14 +1724,19 @@
     }
 
     // ════════════════════════════════════════════════════════
-    //  미국 국채 금리 차트 (FRED: 10년·1년·3개월)
+    //  미국 장단기 금리차 차트 (FRED: 10년-1년, 10년-3개월 두 줄, 범례에 10년·1년·3개월 값)
     //  Supabase 함수 fred-rates가 FRED에서 받아 넘겨준다(API 키는 함수 비밀값).
     //  처음엔 최근 10년치만 받고, '전체'를 누를 때 1962년부터 다시 받는다.
     // ════════════════════════════════════════════════════════
     const RATE_SERIES = [
-      { id: 'DGS10',  name: '10년',  color: '#3987e5' },
-      { id: 'DGS1',   name: '1년',   color: '#d95926' },
-      { id: 'DGS3MO', name: '3개월', color: '#199e70' },
+      { id: 'DGS10',  name: '10년' },
+      { id: 'DGS1',   name: '1년' },
+      { id: 'DGS3MO', name: '3개월' },
+    ];
+    // 금리차 선. k = RATE_SERIES에서 10년물과 뺄 금리의 순번
+    const SPREAD_SERIES = [
+      { name: '10년-1년',   k: 1, color: '#3987e5' },
+      { name: '10년-3개월', k: 2, color: '#d95926' },
     ];
     // [코드, 버튼 글자, 개월 수(0 = 전체)]
     const RATE_RANGES = [
@@ -1817,10 +1822,25 @@
           { ...axis, size: 46, values: (u, splits, ai, space, incr) =>
               splits.map(v => v.toFixed(rateDecimals(incr)) + '%') },
         ],
-        series: [{}, ...RATE_SERIES.map(s => ({
+        series: [{}, ...SPREAD_SERIES.map(s => ({
           label: s.name, stroke: s.color, width: 1, spanGaps: true, points: { show: false },
         }))],
-        hooks: { setCursor: [u => ratesLegend(u.cursor.idx)] },
+        hooks: {
+          setCursor: [u => ratesLegend(u.cursor.idx)],
+          // 0% 기준선: 선이 이 아래로 내려가면 역전
+          draw: [u => {
+            const y = u.valToPos(0, 'y', true), { left, top, width, height } = u.bbox;
+            if (y < top || y > top + height) return;
+            u.ctx.save();
+            u.ctx.strokeStyle = '#666';
+            u.ctx.lineWidth = uPlot.pxRatio;
+            u.ctx.beginPath();
+            u.ctx.moveTo(left, y);
+            u.ctx.lineTo(left + width, y);
+            u.ctx.stroke();
+            u.ctx.restore();
+          }],
+        },
       };
     }
 
@@ -1834,7 +1854,10 @@
       }
       const dates = data.dates.slice(from);
       const ys = RATE_SERIES.map(s => data.series[s.id].slice(from));
-      const plotData = [dates.map(d => Date.parse(d) / 1000), ...ys];
+      // 두 금리가 다 있는 날만 금리차를 계산한다
+      const spreads = SPREAD_SERIES.map(s =>
+        ys[0].map((v, i) => v == null || ys[s.k][i] == null ? null : +(v - ys[s.k][i]).toFixed(2)));
+      const plotData = [dates.map(d => Date.parse(d) / 1000), ...spreads];
       ratesView = { dates, ys };
 
       const box = document.getElementById('ratesChart');
@@ -1866,8 +1889,8 @@
       };
       document.getElementById('ratesLegend').innerHTML =
         `<span class="date">${dates[i]}</span>` +
-        RATE_SERIES.map((s, k) => `<span><i style="background:${s.color}"></i>${s.name} <b>${pct(v[k])}</b></span>`).join('') +
-        spread('10년-1년', v[0], v[1]) + spread('10년-3개월', v[0], v[2]);
+        RATE_SERIES.map((s, k) => `<span>${s.name} <b>${pct(v[k])}</b></span>`).join('') +
+        SPREAD_SERIES.map(s => spread(`<i style="background:${s.color}"></i>${s.name}`, v[0], v[s.k])).join('');
     }
 
     // ════════════════════════════════════════════════════════
