@@ -265,7 +265,7 @@
     .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; color: #666; }
     .cal-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
 
-    /* ── 미국 국채 금리 차트 ── */
+    /* ── 금리차·경기선행 차트 (두 칸씩 두 줄) ── */
     .rates-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
     .rates-range { display: flex; flex-wrap: wrap; gap: 4px; }
     .rates-range button {
@@ -276,7 +276,11 @@
     .rates-range button:hover { border-color: #555; color: #aaa; }
     .rates-range button.on { background: #1a3050; border-color: #3a6a9a; color: #9cc8f0; }
     @media (pointer: coarse) { .rates-range button { padding: 5px 9px; } }
-    .rates-wrap { border: 0.5px solid #2e2e2e; border-radius: 6px; background: #1c1c1c; padding: 8px 6px 6px; }
+    .rates-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .rates-sub { grid-column: 1 / -1; margin: 4px 0 -3px; }
+    @media (max-width: 640px) { .rates-panels { grid-template-columns: 1fr; } }
+    .rates-wrap { min-width: 0; border: 0.5px solid #2e2e2e; border-radius: 6px; background: #1c1c1c; padding: 8px 6px 6px; }
+    .rates-title { font-size: 13px; font-weight: 600; color: #ccc; padding: 0 6px 4px; }
     .rates-legend {
       display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px;
       font-size: 12px; color: #999; padding: 0 6px 6px; min-height: 22px;
@@ -286,7 +290,7 @@
     .rates-legend i { display: inline-block; width: 12px; height: 1px; border-radius: 1px; margin-right: 5px; vertical-align: middle; }
     .rates-legend .date { color: #777; }
     .rates-legend .inv { color: #e66767; margin-left: 3px; font-size: 11px; }
-    #ratesChart { height: 260px; }
+    .rates-chart { height: 260px; }
     .rates-msg { height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 12px; font-size: 13px; color: #aaa; }
     .rates-foot { font-size: 11px; color: #555; padding: 4px 6px 0; }
 
@@ -442,16 +446,41 @@
     </div>
   </div>
 
-  <!-- 미국 장단기 금리차 (FRED 10년-1년, 10년-3개월) -->
+  <!-- 금리차·경기선행 차트 (미국 FRED, 한국 ECOS) -->
   <div class="section">
     <div class="section-title rates-head">
-      <span>미국 장단기 금리차</span>
+      <span>장단기 금리차</span>
       <span class="rates-range" id="ratesRange"></span>
     </div>
-    <div class="rates-wrap">
-      <div class="rates-legend" id="ratesLegend"></div>
-      <div id="ratesChart"><div class="rates-msg">금리 불러오는 중...</div></div>
-      <div class="rates-foot" id="ratesFoot">출처: FRED (DGS10 · DGS1 · DGS3MO), 일별 · 차트에 마우스를 올리거나 누르면 그날 값</div>
+    <div class="rates-panels">
+      <div class="rates-wrap">
+        <div class="rates-title">미국 장단기 금리차</div>
+        <div class="rates-legend" id="ratesLegendUS"></div>
+        <div class="rates-chart" id="ratesChartUS"><div class="rates-msg">금리 불러오는 중...</div></div>
+        <div class="rates-foot">출처: FRED (DGS10 · DGS2 · DGS3MO), 일별</div>
+      </div>
+      <div class="rates-wrap">
+        <div class="rates-title">한국 장단기 금리차</div>
+        <div class="rates-legend" id="ratesLegendKR"></div>
+        <div class="rates-chart" id="ratesChartKR"><div class="rates-msg">금리 불러오는 중...</div></div>
+        <div class="rates-foot">출처: 한국은행 ECOS (국고채 10년·1년, 3개월은 통안증권 91일), 일별</div>
+      </div>
+      <div class="section-title rates-head rates-sub">
+        <span>한국 경기선행</span>
+        <span class="rates-range" id="monthlyRange"></span>
+      </div>
+      <div class="rates-wrap">
+        <div class="rates-title">장단기 금리차와 선행지수</div>
+        <div class="rates-legend" id="ratesLegendLEAD"></div>
+        <div class="rates-chart" id="ratesChartLEAD"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">주: 장단기금리차가 선행지수에 1개월 선행(김영익, 상관계수 0.73) · 출처: 한국은행 ECOS, 월별</div>
+      </div>
+      <div class="rates-wrap">
+        <div class="rates-title">뉴스심리지수와 선행지수</div>
+        <div class="rates-legend" id="ratesLegendNSI"></div>
+        <div class="rates-chart" id="ratesChartNSI"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">주: 뉴스심리지수(3개월 평균)가 선행지수에 2개월 선행(김영익, 상관계수 0.74) · 출처: 한국은행 ECOS, 월별</div>
+      </div>
     </div>
   </div>
 
@@ -1724,74 +1753,139 @@
     }
 
     // ════════════════════════════════════════════════════════
-    //  미국 장단기 금리차 차트 (FRED: 10년-1년, 10년-3개월 두 줄, 범례에 10년·1년·3개월 값)
-    //  Supabase 함수 fred-rates가 FRED에서 받아 넘겨준다(API 키는 함수 비밀값).
-    //  처음엔 최근 10년치만 받고, '전체'를 누를 때 1962년부터 다시 받는다.
+    //  금리차·경기선행 차트 (두 칸씩 두 줄, 줄마다 기간 버튼이 따로 있다)
+    //  미국은 Supabase 함수 fred-rates(FRED), 한국은 kr-rates(한국은행 ECOS)가
+    //  받아서 넘겨준다(API 키는 함수 비밀값).
+    //  처음엔 최근 10년치만 받고, '전체'를 누를 때 전체 기간을 다시 받는다.
     // ════════════════════════════════════════════════════════
-    const RATE_SERIES = [
-      { id: 'DGS10',  name: '10년' },
-      { id: 'DGS1',   name: '1년' },
-      { id: 'DGS3MO', name: '3개월' },
-    ];
-    // 금리차 선. k = RATE_SERIES에서 10년물과 뺄 금리의 순번
-    const SPREAD_SERIES = [
-      { name: '10년-1년',   k: 1, color: '#3987e5' },
-      { name: '10년-3개월', k: 2, color: '#d95926' },
-    ];
+    const LINE_ORANGE = '#d95926', LINE_BLUE = '#3987e5';
+    // rates: 범례에 쓰는 금리. 첫 번째(10년)에서 나머지를 뺀 값이 금리차 선이 된다.
+    const RATE_PANELS = [
+      { key: 'US', fn: 'fred-rates', rates: [
+        { id: 'DGS10',  name: '10년' },
+        { id: 'DGS2',   name: '2년' },
+        { id: 'DGS3MO', name: '3개월' },
+      ] },
+      { key: 'KR', fn: 'kr-rates', rates: [
+        { id: 'KTB10', name: '10년' },
+        { id: 'KTB1',  name: '1년' },
+        { id: 'MSB91', name: '3개월' },
+      ] },
+    ].map(p => {
+      const lines = p.rates.slice(1).map((r, j) => ({ name: '10년-' + r.name, k: j + 1, color: [LINE_ORANGE, LINE_BLUE][j] }));
+      return { ...p, lines, unit: '%', zero: 'y', legend: ratesLegend, cache: {}, plot: null, view: null };
+    });
+
+    // 월별 차트 두 개는 kr-rates의 월별 자료 하나를 같이 쓴다. 왼쪽 축 y, 오른쪽 축 y2.
+    // '전체'는 김영익 교수 영상(3:44, 4:02) 차트와 같은 시작일·축으로 보여 주고, 끝은 최신 자료까지 늘어난다.
+    const ma3 = a => a.map((v, i) => {
+      if (i < 2 || v == null || a[i - 1] == null || a[i - 2] == null) return null;
+      return +((v + a[i - 1] + a[i - 2]) / 3).toFixed(2);
+    });
+    const krSpread = d => d.series.KTB10.map((v, i) =>
+      v == null || d.series.KTB1[i] == null ? null : +(v - d.series.KTB1[i]).toFixed(2));
+    const signedPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%p';
+    const fixed1 = v => v.toFixed(1);
+    const MONTHLY_PANELS = [
+      { key: 'LEAD', unit: '', unit2: '%', zero: 'y2', since: '2015-01-01', range: [97, 106], range2: [-0.4, 2], lines: [
+        { name: '선행지수 순환변동치', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
+        { name: '장단기금리차', color: LINE_ORANGE, scale: 'y2', fmt: signedPct, get: krSpread },
+      ] },
+      { key: 'NSI', unit: '', unit2: '', zero: null, since: '2008-01-01', range: [60, 120], range2: [96, 106], lines: [
+        { name: '뉴스심리지수(3개월 평균)', color: LINE_ORANGE, fmt: fixed1, get: d => ma3(d.series.NSI) },
+        { name: '선행지수 순환변동치', color: LINE_BLUE, scale: 'y2', fmt: fixed1, get: d => d.series.CYCLE },
+      ] },
+    ].map(p => ({ ...p, legend: monthlyLegend, plot: null, view: null }));
+    let krMonthly = null;
     // [코드, 버튼 글자, 개월 수(0 = 전체)]
     const RATE_RANGES = [
       ['1Y', '1년', 12], ['3Y', '3년', 36], ['5Y', '5년', 60], ['10Y', '10년', 120], ['ALL', '전체', 0],
     ];
-    const ratesData = { recent: null, full: null };
-    let ratesRange = '1Y';
-    try { ratesRange = localStorage.getItem('ratesRange') || '1Y'; } catch (e) {}
+    let ratesRange = '1Y', monthlyRange = 'ALL';
+    try {
+      ratesRange = localStorage.getItem('ratesRange') || '1Y';
+      monthlyRange = localStorage.getItem('monthlyRange') || 'ALL';
+    } catch (e) {}
     if (!RATE_RANGES.some(r => r[0] === ratesRange)) ratesRange = '1Y';
-    let ratesPlot = null, ratesView = null;
+    if (!RATE_RANGES.some(r => r[0] === monthlyRange)) monthlyRange = 'ALL';
 
-    async function fetchRates(full) {
-      const key = full ? 'full' : 'recent';
-      if (ratesData[key]) return ratesData[key];
-      const start = new Date();
-      start.setMonth(start.getMonth() - 121);
-      const { data, error } = await db.functions.invoke('fred-rates', {
-        body: full ? {} : { start: start.toISOString().slice(0, 10) },
-      });
+    async function invokeRates(fn, body) {
+      const { data, error } = await db.functions.invoke(fn, { body });
       if (error) {
         let msg = error.message;
         try { const j = await error.context.json(); if (j?.error) msg = j.error; } catch (e) {}
         throw new Error(msg);
       }
-      return (ratesData[key] = data);
+      return data;
     }
 
-    function renderRateButtons() {
-      const box = document.getElementById('ratesRange');
+    async function fetchRates(p, full) {
+      const key = full ? 'full' : 'recent';
+      if (p.cache[key]) return p.cache[key];
+      const start = new Date();
+      start.setMonth(start.getMonth() - 121);
+      return (p.cache[key] = await invokeRates(p.fn, full ? {} : { start: start.toISOString().slice(0, 10) }));
+    }
+
+    // 두 차트가 동시에 불러도 한 번만 받는다. 실패하면 다음에 다시 받는다.
+    function fetchMonthly() {
+      if (!krMonthly) {
+        krMonthly = invokeRates('kr-rates', { monthly: true }).catch(e => { krMonthly = null; throw e; });
+      }
+      return krMonthly;
+    }
+
+    function renderRangeBox(id, current, pick) {
+      const box = document.getElementById(id);
       box.innerHTML = '';
       for (const [code, label] of RATE_RANGES) {
         const b = document.createElement('button');
         b.textContent = label;
-        if (code === ratesRange) b.className = 'on';
+        if (code === current) b.className = 'on';
         b.onclick = () => {
-          ratesRange = code;
-          try { localStorage.setItem('ratesRange', code); } catch (e) {}
+          pick(code);
+          try { localStorage.setItem(id, code); } catch (e) {}
           loadRates();
         };
         box.appendChild(b);
       }
     }
 
-    async function loadRates() {
+    function renderRateButtons() {
+      renderRangeBox('ratesRange', ratesRange, code => { ratesRange = code; });
+      renderRangeBox('monthlyRange', monthlyRange, code => { monthlyRange = code; });
+    }
+
+    // 한쪽이 실패해도 다른 쪽은 그려지도록 칸마다 따로 불러온다
+    function loadRates() {
       renderRateButtons();
+      RATE_PANELS.forEach(loadRatePanel);
+      MONTHLY_PANELS.forEach(loadMonthlyPanel);
+    }
+
+    async function loadRatePanel(p) {
       try {
-        drawRates(await fetchRates(ratesRange === 'ALL'));
+        drawRates(p, await fetchRates(p, ratesRange === 'ALL'));
       } catch (e) {
-        console.error('금리 데이터 로드 실패:', e);
-        if (ratesPlot) { ratesPlot.destroy(); ratesPlot = null; }
-        const msg = document.createElement('div');
-        msg.className = 'rates-msg';
-        msg.textContent = '금리 데이터를 불러오지 못했어요 (' + (e.message || e) + ')';
-        document.getElementById('ratesChart').replaceChildren(msg);
+        showRatesError(p, e);
       }
+    }
+
+    async function loadMonthlyPanel(p) {
+      try {
+        drawMonthly(p, await fetchMonthly());
+      } catch (e) {
+        showRatesError(p, e);
+      }
+    }
+
+    function showRatesError(p, e) {
+      console.error('금리 데이터 로드 실패:', p.key, e);
+      if (p.plot) { p.plot.destroy(); p.plot = null; }
+      const msg = document.createElement('div');
+      msg.className = 'rates-msg';
+      msg.textContent = '데이터를 불러오지 못했어요 (' + (e.message || e) + ')';
+      document.getElementById('ratesChart' + p.key).replaceChildren(msg);
     }
 
     // 눈금 간격(0.25 등)을 반올림 없이 보여줄 소수 자릿수
@@ -1800,18 +1894,31 @@
       return 2;
     }
 
-    function ratesOpts(width, height) {
+    // '전체'일 땐 정해 둔 축 범위(값이 그 밖으로 나가면 넓힌다), 짧은 기간은 값에 맞춘 축
+    const monthlyAxis = ([lo, hi]) => (u, min, max) => {
+      if (monthlyRange === 'ALL') return [Math.min(lo, min ?? lo), Math.max(hi, max ?? hi)];
+      if (min == null) return [lo, hi];
+      const pad = (max - min) * 0.1 || 0.5;
+      return [min - pad, max + pad];
+    };
+
+    function ratesOpts(p, width, height) {
       const axis = {
         stroke: '#777', font: '11px -apple-system, BlinkMacSystemFont, sans-serif',
         grid: { stroke: '#262626', width: 1 }, ticks: { show: false },
       };
       const DAY = 86400;
+      const axisValues = unit => (u, splits, ai, space, incr) =>
+        splits.map(v => v.toFixed(rateDecimals(incr)) + unit);
       return {
         width, height,
         legend: { show: false },
         cursor: { drag: { x: false, y: false }, points: { size: 8 } },
         tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC'),
-        scales: { x: { time: true } },
+        scales: {
+          x: { time: true },
+          ...(p.range ? { y: { range: monthlyAxis(p.range) }, y2: { range: monthlyAxis(p.range2) } } : {}),
+        },
         axes: [
           { ...axis, space: 60, values: (u, splits, ai, space, incr) => splits.map(s => {
               const d = new Date(s * 1e3), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
@@ -1819,17 +1926,20 @@
               if (incr >= 28 * DAY) return `${String(y).slice(2)}.${m}`;
               return `${m}/${d.getUTCDate()}`;
             }) },
-          { ...axis, size: 46, values: (u, splits, ai, space, incr) =>
-              splits.map(v => v.toFixed(rateDecimals(incr)) + '%') },
+          { ...axis, size: 46, values: axisValues(p.unit) },
+          ...(p.unit2 != null
+            ? [{ ...axis, scale: 'y2', side: 1, size: 46, grid: { show: false }, values: axisValues(p.unit2) }]
+            : []),
         ],
-        series: [{}, ...SPREAD_SERIES.map(s => ({
-          label: s.name, stroke: s.color, width: 1, spanGaps: true, points: { show: false },
+        series: [{}, ...p.lines.map(s => ({
+          label: s.name, stroke: s.color, width: 1, spanGaps: true, points: { show: false }, scale: s.scale || 'y',
         }))],
         hooks: {
-          setCursor: [u => ratesLegend(u.cursor.idx)],
+          setCursor: [u => p.legend(p, u.cursor.idx)],
           // 0% 기준선: 선이 이 아래로 내려가면 역전
           draw: [u => {
-            const y = u.valToPos(0, 'y', true), { left, top, width, height } = u.bbox;
+            if (!p.zero) return;
+            const y = u.valToPos(0, p.zero, true), { left, top, width, height } = u.bbox;
             if (y < top || y > top + height) return;
             u.ctx.save();
             u.ctx.strokeStyle = '#666';
@@ -1844,53 +1954,92 @@
       };
     }
 
-    function drawRates(data) {
-      const months = RATE_RANGES.find(r => r[0] === ratesRange)[2];
-      let from = 0;
-      if (months) {
-        const cut = new Date(data.dates[data.dates.length - 1]);
-        cut.setMonth(cut.getMonth() - months);
-        from = Math.max(0, data.dates.findIndex(d => d >= cut.toISOString().slice(0, 10)));
-      }
-      const dates = data.dates.slice(from);
-      const ys = RATE_SERIES.map(s => data.series[s.id].slice(from));
-      // 두 금리가 다 있는 날만 금리차를 계산한다
-      const spreads = SPREAD_SERIES.map(s =>
-        ys[0].map((v, i) => v == null || ys[s.k][i] == null ? null : +(v - ys[s.k][i]).toFixed(2)));
-      const plotData = [dates.map(d => Date.parse(d) / 1000), ...spreads];
-      ratesView = { dates, ys };
+    // 고른 기간이 시작되는 자리
+    function rangeStart(dates, range) {
+      const months = RATE_RANGES.find(r => r[0] === range)[2];
+      if (!months) return 0;
+      const cut = new Date(dates[dates.length - 1]);
+      cut.setMonth(cut.getMonth() - months);
+      return Math.max(0, dates.findIndex(d => d >= cut.toISOString().slice(0, 10)));
+    }
 
-      const box = document.getElementById('ratesChart');
-      if (ratesPlot) {
-        ratesPlot.setData(plotData);
+    function drawRates(p, data) {
+      const from = rangeStart(data.dates, ratesRange);
+      const dates = data.dates.slice(from);
+      const ys = p.rates.map(r => data.series[r.id].slice(from));
+      // 두 금리가 다 있는 날만 금리차를 계산한다
+      const spreads = p.lines.map(s =>
+        ys[0].map((v, i) => v == null || ys[s.k][i] == null ? null : +(v - ys[s.k][i]).toFixed(2)));
+      p.view = { dates, ys };
+      plotRates(p, [dates.map(d => Date.parse(d) / 1000), ...spreads]);
+    }
+
+    function drawMonthly(p, data) {
+      const all = p.lines.map(l => l.get(data));
+      // 끝쪽에 이 차트의 지표가 하나도 없는 달은 뺀다(다른 지표만 먼저 나온 달)
+      let n = data.dates.length;
+      while (n > 0 && all.every(y => y[n - 1] == null)) n--;
+      const allDates = data.dates.slice(0, n);
+      const from = monthlyRange === 'ALL'
+        ? Math.max(0, allDates.findIndex(d => d >= p.since))
+        : rangeStart(allDates, monthlyRange);
+      const dates = allDates.slice(from);
+      const ys = all.map(y => y.slice(from, n));
+      p.view = { dates, ys };
+      plotRates(p, [dates.map(d => Date.parse(d) / 1000), ...ys]);
+    }
+
+    function plotRates(p, plotData) {
+      const box = document.getElementById('ratesChart' + p.key);
+      if (p.plot) {
+        p.plot.setData(plotData);
       } else {
         box.replaceChildren();
-        ratesPlot = new uPlot(ratesOpts(box.clientWidth, box.clientHeight), plotData, box);
-        new ResizeObserver(() => {
-          if (ratesPlot) ratesPlot.setSize({ width: box.clientWidth, height: box.clientHeight });
-        }).observe(box);
+        p.plot = new uPlot(ratesOpts(p, box.clientWidth, box.clientHeight), plotData, box);
+        if (!p.observer) {
+          p.observer = new ResizeObserver(() => {
+            if (p.plot) p.plot.setSize({ width: box.clientWidth, height: box.clientHeight });
+          });
+          p.observer.observe(box);
+        }
       }
-      ratesLegend(null);
+      p.legend(p, null);
     }
 
     // 범례 = 값 표시줄. 커서가 없으면 가장 최근 값, 있으면 그날 값.
-    function ratesLegend(idx) {
-      if (!ratesView) return;
-      const { dates, ys } = ratesView;
+    function ratesLegend(p, idx) {
+      if (!p.view) return;
+      const { dates, ys } = p.view;
       const i = idx ?? dates.length - 1;
       // 휴일처럼 그날 값이 비어 있으면 직전 값을 쓴다
       const val = k => { for (let j = i; j >= 0; j--) if (ys[k][j] != null) return ys[k][j]; return null; };
-      const v = RATE_SERIES.map((s, k) => val(k));
+      const v = p.rates.map((r, k) => val(k));
       const pct = x => x == null ? '–' : x.toFixed(2) + '%';
       const spread = (label, a, b) => {
         if (a == null || b == null) return '';
         const d = a - b;
         return `<span>${label} <b>${d >= 0 ? '+' : ''}${d.toFixed(2)}%p</b>${d < 0 ? '<span class="inv">역전</span>' : ''}</span>`;
       };
-      document.getElementById('ratesLegend').innerHTML =
+      document.getElementById('ratesLegend' + p.key).innerHTML =
         `<span class="date">${dates[i]}</span>` +
-        RATE_SERIES.map((s, k) => `<span>${s.name} <b>${pct(v[k])}</b></span>`).join('') +
-        SPREAD_SERIES.map(s => spread(`<i style="background:${s.color}"></i>${s.name}`, v[0], v[s.k])).join('');
+        p.rates.map((r, k) => `<span>${r.name} <b>${pct(v[k])}</b></span>`).join('') +
+        p.lines.map(s => spread(`<i style="background:${s.color}"></i>${s.name}`, v[0], v[s.k])).join('');
+    }
+
+    // 월별 차트의 값 표시줄. 지표마다 발표 시점이 달라 비어 있으면 직전 값을 쓴다.
+    function monthlyLegend(p, idx) {
+      if (!p.view) return;
+      const { dates, ys } = p.view;
+      const i = idx ?? dates.length - 1;
+      const at = k => { for (let j = i; j >= 0; j--) if (ys[k][j] != null) return j; return -1; };
+      document.getElementById('ratesLegend' + p.key).innerHTML =
+        `<span class="date">${dates[i].slice(0, 7)}</span>` +
+        p.lines.map((l, k) => {
+          const j = at(k);
+          // 그달 값이 아직 없으면 몇 월 값인지 밝힌다
+          const old = j >= 0 && j !== i ? ` (${+dates[j].slice(5, 7)}월)` : '';
+          return `<span><i style="background:${l.color}"></i>${l.name} <b>${j < 0 ? '–' : l.fmt(ys[k][j])}</b>${old}</span>`;
+        }).join('');
     }
 
     // ════════════════════════════════════════════════════════
