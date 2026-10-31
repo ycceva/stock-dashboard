@@ -1,5 +1,5 @@
-// 한국 금리(국고채 10년·1년, 통안증권 91일)와 월별 경기 지표를 대시보드에 넘겨주는 함수.
-// 본문에 monthly: true를 주면 월별 지표(선행지수순환변동치, 국고채 월평균, 뉴스심리지수)를 준다.
+// 한국 금리(국고채 10년·1년, 통안증권 91일)와 경기 지표를 대시보드에 넘겨주는 함수.
+// 본문에 monthly: true를 주면 월별 지표(선행·동행지수 순환변동치), kospi: true를 주면 일별 코스피를 준다.
 // ECOS API 키는 주소에 들어가서 공개 페이지에 둘 수 없으므로 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 ECOS_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
 // (verify_jwt는 페이지에 공개된 anon 키도 통과시키므로 사용자 세션을 따로 확인한다)
@@ -14,12 +14,14 @@ const DAILY: Record<string, [string, string]> = {
 };
 const MONTHLY: Record<string, [string, string]> = {
   CYCLE: ["901Y067", "I16E"], // 선행지수순환변동치
-  KTB10: ["721Y001", "5050000"], // 국고채(10년) 월평균
-  KTB1: ["721Y001", "5030000"], // 국고채(1년) 월평균
-  NSI: ["523Y001", "A001"], // 뉴스심리지수
+  COIN: ["901Y067", "I16D"], // 동행지수순환변동치
+};
+const KOSPI: Record<string, [string, string]> = {
+  KOSPI: ["802Y001", "0001000"],
 };
 const DAILY_START = "19950101";
 const MONTHLY_START = "200001";
+const KOSPI_START = "20000101";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,10 +69,13 @@ Deno.serve(async (req) => {
     if (!key) throw new Error("ECOS_API_KEY 비밀값이 없습니다");
     const body = await req.json().catch(() => ({}));
     const monthly = body?.monthly === true;
-    const table = monthly ? MONTHLY : DAILY;
+    const kospi = body?.kospi === true;
+    const table = monthly ? MONTHLY : kospi ? KOSPI : DAILY;
     const today = compact(new Date().toISOString().slice(0, 10));
     const start = monthly
       ? MONTHLY_START
+      : kospi
+      ? KOSPI_START
       : /^\d{4}-\d{2}-\d{2}$/.test(body?.start ?? "") ? compact(body.start) : DAILY_START;
     const end = monthly ? today.slice(0, 6) : today;
 

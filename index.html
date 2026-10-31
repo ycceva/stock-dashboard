@@ -473,13 +473,13 @@
         <div class="rates-title">장단기 금리차와 선행지수</div>
         <div class="rates-legend" id="ratesLegendLEAD"></div>
         <div class="rates-chart" id="ratesChartLEAD"><div class="rates-msg">불러오는 중...</div></div>
-        <div class="rates-foot">주: 장단기금리차가 선행지수에 1개월 선행(김영익, 상관계수 0.73) · 출처: 한국은행 ECOS, 월별</div>
+        <div class="rates-foot">주: 장단기금리차가 선행지수에 1개월 선행(김영익, 월별 기준 상관계수 0.73) · 출처: 한국은행 ECOS, 금리차 일별 · 선행지수 월별</div>
       </div>
       <div class="rates-wrap">
-        <div class="rates-title">뉴스심리지수와 선행지수</div>
-        <div class="rates-legend" id="ratesLegendNSI"></div>
-        <div class="rates-chart" id="ratesChartNSI"><div class="rates-msg">불러오는 중...</div></div>
-        <div class="rates-foot">주: 뉴스심리지수(3개월 평균)가 선행지수에 2개월 선행(김영익, 상관계수 0.74) · 출처: 한국은행 ECOS, 월별</div>
+        <div class="rates-title">선행·동행지수와 코스피</div>
+        <div class="rates-legend" id="ratesLegendCI"></div>
+        <div class="rates-chart" id="ratesChartCI"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">출처: 한국은행 ECOS, 순환변동치 월별 · 코스피 일별</div>
       </div>
     </div>
   </div>
@@ -1758,7 +1758,7 @@
     //  받아서 넘겨준다(API 키는 함수 비밀값).
     //  처음엔 최근 10년치만 받고, '전체'를 누를 때 전체 기간을 다시 받는다.
     // ════════════════════════════════════════════════════════
-    const LINE_ORANGE = '#d95926', LINE_BLUE = '#3987e5';
+    const LINE_ORANGE = '#d95926', LINE_BLUE = '#3987e5', LINE_GREEN = '#199e70';
     // rates: 범례에 쓰는 금리. 첫 번째(10년)에서 나머지를 뺀 값이 금리차 선이 된다.
     const RATE_PANELS = [
       { key: 'US', fn: 'fred-rates', rates: [
@@ -1776,27 +1776,25 @@
       return { ...p, lines, unit: '%', zero: 'y', legend: ratesLegend, cache: {}, plot: null, view: null };
     });
 
-    // 월별 차트 두 개는 kr-rates의 월별 자료 하나를 같이 쓴다. 왼쪽 축 y, 오른쪽 축 y2.
-    // '전체'는 김영익 교수 영상(3:44, 4:02) 차트와 같은 시작일·축으로 보여 주고, 끝은 최신 자료까지 늘어난다.
-    const ma3 = a => a.map((v, i) => {
-      if (i < 2 || v == null || a[i - 1] == null || a[i - 2] == null) return null;
-      return +((v + a[i - 1] + a[i - 2]) / 3).toFixed(2);
-    });
+    // 아랫줄 두 차트는 월별 순환변동치에 일별 지표(금리차, 코스피)를 겹친다. 왼쪽 축 y, 오른쪽 축 y2.
+    // '전체'는 since부터 최신 자료까지. 축은 김영익 교수 영상(3:44, 2:28) 차트에 맞췄다.
     const krSpread = d => d.series.KTB10.map((v, i) =>
       v == null || d.series.KTB1[i] == null ? null : +(v - d.series.KTB1[i]).toFixed(2));
     const signedPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%p';
     const fixed1 = v => v.toFixed(1);
+    const fixed0 = v => v.toFixed(0).replace(/\B(?=(\d{3})+$)/g, ',');
     const MONTHLY_PANELS = [
-      { key: 'LEAD', unit: '', unit2: '%', zero: 'y2', since: '2015-01-01', range: [97, 106], range2: [-0.4, 2], lines: [
+      { key: 'LEAD', daily: () => fetchRates(RATE_PANELS[1], true), unit: '', unit2: '%', zero: 'y2', since: '2015-01-01', range: [97, 106], range2: [-0.4, 2], lines: [
         { name: '선행지수 순환변동치', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
         { name: '장단기금리차', color: LINE_ORANGE, scale: 'y2', fmt: signedPct, get: krSpread },
       ] },
-      { key: 'NSI', unit: '', unit2: '', zero: null, since: '2008-01-01', range: [60, 120], range2: [96, 106], lines: [
-        { name: '뉴스심리지수(3개월 평균)', color: LINE_ORANGE, fmt: fixed1, get: d => ma3(d.series.NSI) },
-        { name: '선행지수 순환변동치', color: LINE_BLUE, scale: 'y2', fmt: fixed1, get: d => d.series.CYCLE },
+      { key: 'CI', daily: () => fetchKrOnce('kospi', { kospi: true }), unit: '', unit2: '', zero: null, since: '2000-01-01', range: [94, 106], range2: [0, 9000], lines: [
+        { name: '선행', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
+        { name: '동행', color: LINE_GREEN, fmt: fixed1, get: d => d.series.COIN },
+        { name: '코스피', color: LINE_ORANGE, scale: 'y2', fmt: fixed0, get: d => d.series.KOSPI },
       ] },
     ].map(p => ({ ...p, legend: monthlyLegend, plot: null, view: null }));
-    let krMonthly = null;
+    const krOnce = {};
     // [코드, 버튼 글자, 개월 수(0 = 전체)]
     const RATE_RANGES = [
       ['1Y', '1년', 12], ['3Y', '3년', 36], ['5Y', '5년', 60], ['10Y', '10년', 120], ['ALL', '전체', 0],
@@ -1828,11 +1826,11 @@
     }
 
     // 두 차트가 동시에 불러도 한 번만 받는다. 실패하면 다음에 다시 받는다.
-    function fetchMonthly() {
-      if (!krMonthly) {
-        krMonthly = invokeRates('kr-rates', { monthly: true }).catch(e => { krMonthly = null; throw e; });
+    function fetchKrOnce(key, body) {
+      if (!krOnce[key]) {
+        krOnce[key] = invokeRates('kr-rates', body).catch(e => { delete krOnce[key]; throw e; });
       }
-      return krMonthly;
+      return krOnce[key];
     }
 
     function renderRangeBox(id, current, pick) {
@@ -1871,9 +1869,22 @@
       }
     }
 
+    // 월별 자료에 일별 자료를 합친 표. 그날 값이 없는 칸은 비워 둔다.
+    function mergeDaily(m, d) {
+      const dates = [...new Set([...m.dates, ...d.dates])].sort();
+      const pick = (ds, arr) => {
+        const byDate = new Map(ds.map((x, i) => [x, arr[i]]));
+        return dates.map(x => byDate.get(x) ?? null);
+      };
+      const series = {};
+      for (const [id, arr] of Object.entries(m.series)) series[id] = pick(m.dates, arr);
+      for (const [id, arr] of Object.entries(d.series)) series[id] = pick(d.dates, arr);
+      return { dates, series };
+    }
+
     async function loadMonthlyPanel(p) {
       try {
-        drawMonthly(p, await fetchMonthly());
+        drawMonthly(p, mergeDaily(await fetchKrOnce('monthly', { monthly: true }), await p.daily()));
       } catch (e) {
         showRatesError(p, e);
       }
@@ -2026,14 +2037,14 @@
         p.lines.map(s => spread(`<i style="background:${s.color}"></i>${s.name}`, v[0], v[s.k])).join('');
     }
 
-    // 월별 차트의 값 표시줄. 지표마다 발표 시점이 달라 비어 있으면 직전 값을 쓴다.
+    // 아랫줄 차트의 값 표시줄. 지표마다 발표 시점이 달라 비어 있으면 직전 값을 쓴다.
     function monthlyLegend(p, idx) {
       if (!p.view) return;
       const { dates, ys } = p.view;
       const i = idx ?? dates.length - 1;
       const at = k => { for (let j = i; j >= 0; j--) if (ys[k][j] != null) return j; return -1; };
       document.getElementById('ratesLegend' + p.key).innerHTML =
-        `<span class="date">${dates[i].slice(0, 7)}</span>` +
+        `<span class="date">${dates[i]}</span>` +
         p.lines.map((l, k) => {
           const j = at(k);
           // 그달 값이 아직 없으면 몇 월 값인지 밝힌다
