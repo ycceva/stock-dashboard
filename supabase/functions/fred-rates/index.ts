@@ -1,5 +1,5 @@
 // FRED 미국 국채 금리(10년·2년·3개월)를 대시보드에 넘겨주는 함수.
-// 본문에 lead: true를 주면 OECD 경기선행지수(월별)와 S&P500(일별, FRED에는 최근 10년치만 있다)을 준다.
+// 본문에 lead: true를 주면 OECD 경기선행지수(미국·한국, 월별)와 S&P500(일별, FRED에는 최근 10년치만 있다)을 준다.
 // risk: true를 주면 하이일드 스프레드·하이일드 금리(최근 3년치만 있다)·10년물·달러 인덱스(일별, 2006년~)를 준다.
 // FRED는 브라우저 직접 호출(CORS)을 막고, API 키를 공개 페이지에 둘 수 없어서 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 FRED_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
@@ -11,6 +11,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const RATES: Record<string, string> = { DGS10: "DGS10", DGS2: "DGS2", DGS3MO: "DGS3MO" };
 const LEAD: Record<string, string> = {
   CLI: "USALOLITOAASTSAM", // OECD 경기선행지수(진폭조정), 월별
+  KRCLI: "KORLOLITOAASTSAM", // OECD 한국 경기선행지수(같은 방식), 월별
   SP500: "SP500",
 };
 const RISK: Record<string, string> = {

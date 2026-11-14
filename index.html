@@ -466,7 +466,7 @@
         <div class="rates-foot">출처: FRED · 미국 경기선행지수는 OECD 산출(USALOLITOAASTSAM, 100 = 장기 추세) 월별 · S&amp;P500 일별(FRED 제공 기간 최근 10년)</div>
       </div>
       <div class="section-title rates-head rates-sub">
-        <span>미국 신용 · 달러</span>
+        <span>미국 신용 · 한미 선행</span>
         <span class="rates-range" id="riskRange"></span>
       </div>
       <div class="rates-wrap">
@@ -476,10 +476,10 @@
         <div class="rates-foot">하이일드(투기등급) 회사채 금리 − 같은 만기 국채 금리 · 회색 선 5.2%p = 1996년 이후 장기 평균, 여기까지 오면 심각한 신용 문제(김영익) · FRED는 최근 3년치만 제공 · 출처: FRED (ICE BofA BAMLH0A0HYM2), 일별</div>
       </div>
       <div class="rates-wrap">
-        <div class="rates-title">달러 인덱스와 코스피 · S&amp;P500</div>
-        <div class="rates-legend" id="ratesLegendDOLLAR"></div>
-        <div class="rates-chart" id="ratesChartDOLLAR"><div class="rates-msg">불러오는 중...</div></div>
-        <div class="rates-foot">코스피·S&amp;P500은 기간 첫날 = 100(왼쪽 축), 달러 인덱스는 오른쪽 축 · 달러가 내리면 코스피가 S&amp;P500보다 더 오른다(김영익, 상관계수 0.88) · 달러는 광의 달러 인덱스(DTWEXBGS, DXY와 방향 거의 같음, 약 1주 늦게 갱신) · 출처: FRED, 한국은행 ECOS</div>
+        <div class="rates-title">한국·미국 경기선행지수 (OECD)</div>
+        <div class="rates-legend" id="ratesLegendCLIS"></div>
+        <div class="rates-chart" id="ratesChartCLIS"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">한국 선행지수가 미국보다 3~4개월 앞선다(김영익: 한국 7월 정점, 미국은 10월 정점 가능성) · 둘 다 OECD 산출, 100 = 장기 추세 · 출처: FRED (KORLOLITOAASTSAM · USALOLITOAASTSAM), 월별</div>
       </div>
       <div class="section-title rates-head rates-sub">
         <span>한국 경기선행</span>
@@ -492,10 +492,10 @@
         <div class="rates-foot">주: 일평균 수출 = 통관 수출액 ÷ 조업일수(평일 1·토요일 0.5·공휴일 0, 산업통상부 방식) · 출처: 한국은행 ECOS, 월별</div>
       </div>
       <div class="rates-wrap">
-        <div class="rates-title">선행·동행지수와 코스피</div>
+        <div class="rates-title">선행지수와 코스피</div>
         <div class="rates-legend" id="ratesLegendCI"></div>
         <div class="rates-chart" id="ratesChartCI"><div class="rates-msg">불러오는 중...</div></div>
-        <div class="rates-foot">출처: 한국은행 ECOS, 순환변동치 월별 · 코스피 일별</div>
+        <div class="rates-foot">선행지수가 오를 땐 주식 비중을 늘리고 꺾이면 줄인다(김영익) · 출처: 한국은행 ECOS, 순환변동치 월별 · 코스피 일별</div>
       </div>
       <div class="section-title rates-head rates-sub">
         <span>코스피 밸류에이션 · 뉴스심리</span>
@@ -1837,8 +1837,7 @@
       ] },
       { key: 'CI', group: 'monthly', load: async () => mergeDaily(await krMonthly(), await fetchOnce('kr-rates', 'kospi', { kospi: true })),
         unit: '', unit2: '', zero: null, since: '2000-01-01', range: [94, 106], range2: [0, 9000], lines: [
-        { name: '선행', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
-        { name: '동행', color: LINE_GREEN, fmt: fixed1, get: d => d.series.COIN },
+        { name: '선행지수 순환변동치', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
         { name: '코스피', color: LINE_ORANGE, scale: 'y2', fmt: fixed0, get: d => d.series.KOSPI },
       ] },
     ].map(p => ({ ...p, legend: monthlyLegend, plot: null, view: null }));
@@ -1883,7 +1882,7 @@
       return mergeDaily(withMa, kospi);
     }
 
-    // 미국 신용·달러 줄. 신용 스프레드는 김영익 교수가 말한 장기 평균 5.2%p에 기준선을 긋는다.
+    // 미국 신용·한미 선행 줄. 신용 스프레드는 김영익 교수가 말한 장기 평균 5.2%p에 기준선을 긋는다.
     const CREDIT_LINE = 5.2;
     const pctp = v => v.toFixed(2) + '%p';
     const RISK_PANELS = [
@@ -1891,16 +1890,10 @@
         yInclude: [CREDIT_LINE + 0.3], since: '2006-01-01', legend: creditLegend, lines: [
         { name: '하이일드 스프레드', color: LINE_ORANGE, daily: true, fmt: pctp, get: d => d.series.HY },
       ] },
-      // 코스피·S&P500은 기간 첫날을 100으로 맞춰(rebase) 왼쪽 축에, 달러 인덱스는 오른쪽 축에
-      { key: 'DOLLAR', load: async () => {
-          const [risk, lead, kospi] = await Promise.all([
-            fetchOnce('fred-rates', 'risk', { risk: true }), fetchOnce('fred-rates', 'lead', { lead: true }), fetchOnce('kr-rates', 'kospi', { kospi: true })]);
-          const dollar = { dates: risk.dates, series: { DOLLAR: risk.series.DOLLAR } };
-          return mergeDaily(mergeDaily(dollar, { dates: lead.dates, series: { SP500: lead.series.SP500 } }), kospi);
-        }, unit: '', unit2: '', zero: 'y', zeroAt: 100, since: '2016-11-14', legend: monthlyLegend, lines: [
-        { name: '코스피', color: LINE_ORANGE, daily: true, rebase: true, fmt: fixed0, get: d => d.series.KOSPI },
-        { name: 'S&P500', color: LINE_GREEN, daily: true, rebase: true, fmt: fixed0, get: d => d.series.SP500 },
-        { name: '달러 인덱스', color: LINE_BLUE, scale: 'y2', daily: true, fmt: v => v.toFixed(1), get: d => d.series.DOLLAR },
+      // 한국·미국 선행지수: 같은 OECD 방식이라 한 축에 겹친다
+      { key: 'CLIS', load: () => fetchOnce('fred-rates', 'lead', { lead: true }), unit: '', zero: 'y', zeroAt: 100, since: '2000-01-01', legend: monthlyLegend, lines: [
+        { name: '한국', color: LINE_ORANGE, fmt: v => v.toFixed(2), get: d => d.series.KRCLI },
+        { name: '미국', color: LINE_BLUE, fmt: v => v.toFixed(2), get: d => d.series.CLI },
       ] },
     ].map(p => ({ ...p, group: 'risk', plot: null, view: null }));
     const onceCache = {};
