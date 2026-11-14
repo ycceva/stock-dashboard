@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주봉 골든크로스</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="골든크로스">
+  <meta name="theme-color" content="#141414">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #141414; --card: #1b1b1b; --card2: #212121; --line: #262626;
+      --text: #e2e2e2; --muted: #888; --dim: #5c5c5c;
+      --yellow: #f2c94c; --ma20: #6f8fb8; --price: #7a7a7a;
+      --up: #e0605a; --down: #5fa0e8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      font-size: 15px; background: var(--bg); color: var(--text); padding: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    button, input { font-family: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .header h1 { font-size: 17px; font-weight: 500; flex: 1; min-width: 140px; }
+    .save { font-size: 12px; color: var(--dim); }
+    .btn {
+      font-size: 12px; background: none; border: 0.5px solid #333; border-radius: 4px;
+      color: #888; padding: 4px 10px; cursor: pointer; display: inline-block;
+    }
+    .btn:hover { border-color: #555; color: #bbb; }
+    .btn.on { color: var(--yellow); border-color: #6a5a2a; }
+
+    .info { font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 14px; }
+    .info b { color: #bbb; font-weight: 500; }
+    .info .warn { color: var(--yellow); }
+    .legend { display: inline-flex; gap: 12px; flex-wrap: wrap; }
+    .legend i { display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 4px; }
+    .legend .gc-dot { position: static; display: inline-block; width: 7px; height: 7px; margin: 0 4px 0 0; vertical-align: 0; }
+    .legend .gc-dot.dn, .legend .gc-dot.up.weak { background: var(--bg); }
+    .nowrap { white-space: nowrap; }
+
+    .sec { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+    .sec-title { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .6px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sec-title .n { color: var(--dim); font-weight: 400; letter-spacing: 0; }
+    .sec-title .grow { flex: 1; }
+    .sec-desc { font-size: 12px; color: var(--dim); margin: -4px 0 10px; line-height: 1.6; }
+    .empty { color: var(--dim); font-size: 13px; padding: 12px 0; }
+
+    .add { display: flex; gap: 6px; }
+    .add input { width: 180px; font-size: 13px; background: #141414; color: #eee; border: 0.5px solid #333; border-radius: 4px; padding: 4px 8px; outline: none; }
+    .add input:focus { border-color: #4a8ac4; }
+
+    /* ── 차트 공통 ── */
+    .gc-chart { position: relative; }
+    .gc-chart svg { display: block; width: 100%; }
+    .gc-dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; }
+    .gc-dot.up { background: var(--yellow); box-shadow: 0 0 0 2px var(--card); }
+    .gc-dot.dn { border: 1.5px solid var(--down); background: var(--card); }
+    .gc-dot.up.weak { background: var(--card); border: 1.5px solid #8a7430; box-shadow: none; }
+    .row.dim { opacity: .45; }
+    .hist .w { color: #6b6b6b; }
+
+    /* ── 줄 목록 ── */
+    .rows { display: flex; flex-direction: column; }
+    .row { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(120px, 1.4fr) minmax(130px, 1fr) 76px 28px; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid #232323; }
+    .row:first-child { border-top: none; }
+    .row.alert { background: linear-gradient(90deg, rgba(242,201,76,.07), transparent 60%); }
+    .r-name { min-width: 0; }
+    .r-name b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .r-name span { font-size: 11px; color: var(--dim); }
+    .r-name:hover b { text-decoration: underline; text-underline-offset: 3px; }
+    .chip { display: inline-block; font-size: 12px; padding: 2px 7px; border-radius: 10px; background: #262626; color: #bbb; white-space: nowrap; }
+    .chip.hold { background: rgba(242,201,76,.12); color: var(--yellow); }
+    .chip.re { background: rgba(224,96,90,.14); color: #f08a84; }
+    .chip.down { background: rgba(95,160,232,.12); color: var(--down); }
+    .chip.now { font-weight: 600; box-shadow: inset 0 0 0 1px currentColor; }
+    .hist { font-size: 11px; color: var(--dim); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist .u { color: #c9a640; } .hist .d { color: #4f86c4; }
+    .r-ret { text-align: right; font-size: 14px; font-weight: 600; }
+    .r-ret small { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+    .up { color: var(--up); } .down { color: var(--down); }
+    .star { background: none; border: none; font-size: 17px; color: #555; cursor: pointer; line-height: 1; padding: 2px; }
+    .star.on { color: var(--yellow); }
+    .star:hover { color: var(--yellow); }
+
+    /* ── 이번 주 새로 돌파 카드 ── */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .card { background: var(--card2); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+    .card .top { display: flex; align-items: center; gap: 6px; }
+    .card .top a { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 6px; }
+    .card .top b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card .top span { font-size: 11px; color: var(--dim); white-space: nowrap; }
+    .card .px { font-size: 13px; color: var(--muted); margin: 2px 0 6px; }
+    .card .px b { color: var(--text); font-size: 16px; margin-right: 4px; }
+    .card .gc-dot.up, .card .gc-dot.dn { box-shadow: 0 0 0 2px var(--card2); }
+    .card .gc-dot.dn, .card .gc-dot.up.weak { background: var(--card2); }
+
+    .tabs { display: flex; gap: 6px; }
+
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr auto 28px; grid-template-areas: "name ret star" "chart chart chart" "state state state"; row-gap: 6px; }
+      .r-name { grid-area: name; } .r-chart { grid-area: chart; } .r-state { grid-area: state; display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .r-state .hist { margin-top: 0; } .r-ret { grid-area: ret; } .star { grid-area: star; }
+      .add input { width: 130px; }
+    }
+
+    .auth-overlay { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: none; align-items: center; justify-content: center; padding: 20px; }
+    .auth-overlay.on { display: flex; }
+    .auth-box { background: #1e1e1e; border: 0.5px solid #333; border-radius: 10px; padding: 16px; width: 100%; max-width: 320px; }
+    .auth-title { font-size: 14px; color: #ccc; margin-bottom: 10px; }
+    .auth-input { width: 100%; font-size: 16px; font-family: inherit; background: #141414; color: #eee; border: 0.5px solid #333; border-radius: 6px; padding: 8px 10px; outline: none; }
+    .auth-input:focus { border-color: #4a8ac4; }
+    .auth-err { font-size: 12px; color: #ff8a8a; margin-top: 8px; min-height: 14px; }
+    .auth-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+  <div class="auth-overlay" id="authView">
+    <div class="auth-box">
+      <div class="auth-title">로그인이 필요합니다</div>
+      <input type="email" id="authEmail" class="auth-input" placeholder="이메일" autocomplete="email" spellcheck="false">
+      <input type="password" id="authPassword" class="auth-input" placeholder="비밀번호" autocomplete="current-password" style="margin-top:8px;">
+      <div class="auth-err" id="authErr"></div>
+      <div class="auth-actions"><button class="btn" onclick="loginWithPassword()">로그인</button></div>
+    </div>
+  </div>
+
+  <div id="appRoot" class="wrap" style="display:none">
+    <div class="header">
+      <a class="btn" href="index.html">← 대시보드</a>
+      <h1>주봉 골든크로스</h1>
+      <span class="save" id="saveStatus"></span>
+    </div>
+
+    <div class="info" id="info">불러오는 중...</div>
+
+    <!-- ① 내 추적 -->
+    <div class="sec">
+      <div class="sec-title">
+        <span>★ 내 추적</span><span class="n" id="watchCount"></span><span class="grow"></span>
+        <span class="add">
+          <input id="addInput" list="stockList" placeholder="종목 이름으로 추가" spellcheck="false">
+          <button class="btn" onclick="addFromInput()">추가</button>
+        </span>
+        <datalist id="stockList"></datalist>
+      </div>
+      <div class="sec-desc">☆를 누른 종목은 매주 따라갑니다. 이번 주에 뚫거나 내려간 종목이 맨 위에 오고, 대시보드 첫 화면 버튼에도 개수가 뜹니다. 이탈 뒤 4주 동안 반등하지 못한 종목은 흐리게 맨 아래로 내려가요(★를 눌러 정리). 수익률은 기준 주(점선) 종가 대비.</div>
+      <div id="watchRows" class="rows"></div>
+    </div>
+
+    <!-- ② 이번 주 새로 돌파 -->
+    <div class="sec">
+      <div class="sec-title"><span>이번 주 새로 돌파</span><span class="n" id="newCount"></span></div>
+      <div id="newGrid"></div>
+    </div>
+
+    <!-- ③ 최근 12주 돌파 종목 -->
+    <div class="sec">
+      <div class="sec-title">
+        <span id="recentTitle">최근 4주 안에 돌파한 종목</span>
+        <span class="tabs" id="wins">
+          <button class="btn on" data-w="4">4주</button>
+          <button class="btn" data-w="8">8주</button>
+          <button class="btn" data-w="12">12주</button>
+        </span>
+        <span class="grow"></span>
+        <span class="tabs" id="tabs">
+          <button class="btn on" data-k="hold">유지</button>
+          <button class="btn" data-k="re">재돌파</button>
+          <button class="btn" data-k="down">이탈</button>
+        </span>
+      </div>
+      <div class="sec-desc" id="tabDesc"></div>
+      <div id="recentRows" class="rows"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="gc-core.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const SUPABASE_URL = 'https://mwpyzhshhrzpmdmmuhzb.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13cHl6aHNoaHJ6cG1kbW11aHpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzOTU5NTAsImV4cCI6MjA5Mzk3MTk1MH0.5X-dN79ePafwDgNilGfa1mbYxRDeyBm4cTENcVfDMFU';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let D = null, WATCH = [], TAB = 'hold';
+    const A = new Map();  // 종목코드 → analyze 결과 (한 번만 계산)
+    const an = st => { if (!A.has(st.c)) A.set(st.c, GC.analyze(st)); return A.get(st.c); };
+
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = n => n.toLocaleString('ko-KR');
+    const ymd = s => `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6, 8)}`;
+    const md = s => `${+s.slice(4, 6)}/${+s.slice(6, 8)}`;
+    const signed = (v, d = 1) => v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`;
+    const cls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
+    const capLabel = eok => eok >= 10000 ? `${(eok / 10000).toFixed(eok >= 100000 ? 0 : 1)}조` : `${fmt(eok)}억`;
+    const mkt = st => st.m === 'P' ? '코스피' : '코스닥';
+    const naver = c => `https://m.stock.naver.com/domestic/stock/${c}/total`;
+    const isWatched = c => WATCH.some(w => w.c === c);
+
+    function hist(t) {
+      if (!t.ev.length) return '기준 주 이후 돌파·이탈 없음';
+      return t.ev.map(e => `<span class="${e.up ? (e.vol ? 'u' : 'w') : 'd'}">${md(D.dates[e.i])}${e.up ? '↑' + (e.vr != null ? e.vr.toFixed(1) + '배' : '') : '↓'}</span>`).join(' ');
+    }
+
+    function row(st, t, opt = {}) {
+      const a = an(st);
+      const now = t.thisWeek ? ' now' : '';
+      return `<div class="row${opt.alert && t.thisWeek ? ' alert' : ''}${t.expiredAt != null ? ' dim' : ''}">
+        <a class="r-name" href="${naver(st.c)}" target="_blank" rel="noopener"><b>${esc(st.n)}</b><span>${mkt(st)} · ${capLabel(st.cap)} · ${fmt(st.p[a.last])}원</span></a>
+        <div class="r-chart">${GC.mini(a, { from: t.from, h: 44 })}</div>
+        <div class="r-state"><span class="chip ${t.expiredAt != null ? '' : t.kind}${now}">${GC.stateLabel(t)}</span><div class="hist">${hist(t)}</div></div>
+        <div class="r-ret ${cls(t.ret)}">${signed(t.ret)}<small>${opt.retLabel || ''} ${md(D.dates[t.from])}</small></div>
+        <button class="star${isWatched(st.c) ? ' on' : ''}" data-c="${st.c}" data-from="${t.from}" title="추적">${isWatched(st.c) ? '★' : '☆'}</button>
+      </div>`;
+    }
+
+    // ① 내 추적
+    function renderWatch() {
+      const items = WATCH.map(w => {
+        const st = D.byCode.get(w.c);
+        if (!st) return { w, missing: true };
+        return { w, st, t: GC.track(an(st), GC.indexOf(D.dates, w.at)) };
+      });
+      // 이번 주 변화 먼저, 그다음 찜한 순서(최근 것 위)
+      const rank = x => !x.t ? 3 : x.t.expiredAt != null ? 2 : x.t.thisWeek ? 0 : 1;
+      items.sort((x, y) => (rank(x) - rank(y)) || (y.w.at.localeCompare(x.w.at)));
+      const changed = items.filter(x => x.t?.thisWeek && x.t.expiredAt == null).length;
+      $('watchCount').textContent = WATCH.length ? `${WATCH.length}종목${changed ? ` · 이번 주 변화 ${changed}` : ''}` : '';
+      $('watchRows').innerHTML = items.length ? items.map(x => x.missing
+        ? `<div class="row"><div class="r-name"><b>${esc(x.w.n)}</b><span>${x.w.c}</span></div><div class="r-chart"></div><div class="r-state"><span class="chip">데이터 없음</span><div class="hist">시총 1000억 아래로 내려갔거나 거래정지</div></div><div></div><button class="star on" data-c="${x.w.c}">★</button></div>`
+        : row(x.st, x.t, { alert: true, retLabel: '기준' })).join('')
+        : '<div class="empty">아직 없어요. 아래 목록에서 ☆를 누르거나 위 칸에 종목 이름을 넣으세요.</div>';
+    }
+
+    // ② 이번 주 새로 돌파 (재돌파 포함)
+    function renderNew() {
+      const list = D.stocks.map(st => an(st)).filter(a => {
+        const e = a.events[a.events.length - 1];
+        return e && e.up && e.vol && e.i === a.last;
+      }).sort((x, y) => y.st.cap - x.st.cap);
+      $('newCount').textContent = `${list.length}종목 · ${md(D.dates[D.dates.length - 1])} 주`;
+      $('newGrid').innerHTML = list.length ? `<div class="grid">${list.map(a => {
+        const st = a.st, prev = st.p[a.last - 1], chg = prev ? (st.p[a.last] / prev - 1) * 100 : null;
+        const reX = a.events.filter(e => e.up && e.i > a.last - GC.RECENT).length > 1;
+        const vr = a.events[a.events.length - 1].vr;
+        return `<div class="card">
+          <div class="top"><a href="${naver(st.c)}" target="_blank" rel="noopener"><b>${esc(st.n)}</b><span>${mkt(st)} · ${capLabel(st.cap)}</span></a>
+            <button class="star${isWatched(st.c) ? ' on' : ''}" data-c="${st.c}" data-from="${a.last}" title="추적">${isWatched(st.c) ? '★' : '☆'}</button></div>
+          <div class="px"><b>${fmt(st.p[a.last])}</b><span class="${cls(chg)}">이번 주 ${signed(chg, 2)}</span> · <span class="nowrap">거래량 ${vr.toFixed(1)}배</span>${reX ? ' · <span class="nowrap">12주 안 재돌파</span>' : ''}</div>
+          ${GC.mini(a, { h: 70 })}
+        </div>`;
+      }).join('')}</div>` : '<div class="empty">이번 주 거래량을 동반해 새로 돌파한 종목이 없어요.</div>';
+    }
+
+    // ③ 최근 12주 돌파 종목 — 첫 돌파 이후 흐름으로 나눈다
+    const TAB_DESC = {
+      hold: '거래량을 동반해 돌파한 뒤 한 번도 20주선 아래로 내려가지 않은 종목.',
+      re: '거래량 동반 돌파 → 이탈 → 4주 안에 다시 돌파해 지금 위에 있는 종목.',
+      down: '거래량 동반 돌파 뒤 이탈한 지 4주가 안 된 종목. 4주 안에 다시 못 뚫으면 목록에서 빠져요.',
+    };
+    let RECENT = null, WIN = 4;
+    function computeRecent() {
+      const start = D.dates.length - WIN;
+      $('recentTitle').textContent = `최근 ${WIN}주 안에 돌파한 종목`;
+      RECENT = { hold: [], re: [], down: [] };
+      for (const st of D.stocks) {
+        const a = an(st);
+        const t = GC.recentStory(a, start);
+        if (!t || t.from === a.last) continue; // 이번 주 첫 돌파는 ②에
+        RECENT[t.kind].push({ st, t });
+      }
+      for (const k in RECENT) RECENT[k].sort((x, y) => y.st.cap - x.st.cap);
+      document.querySelectorAll('#tabs .btn').forEach(b => b.textContent = `${{ hold: '유지', re: '재돌파', down: '이탈' }[b.dataset.k]} ${RECENT[b.dataset.k].length}`);
+    }
+    function renderRecent() {
+      $('tabDesc').textContent = TAB_DESC[TAB] + ' 수익률은 거래량 동반 돌파 주 종가 대비, 시총순.';
+      const list = RECENT[TAB];
+      $('recentRows').innerHTML = list.length ? list.map(x => row(x.st, x.t, { retLabel: '돌파' })).join('') : '<div class="empty">해당 종목 없음</div>';
+    }
+
+    function renderAll() { renderWatch(); renderNew(); renderRecent(); }
+
+    // ── 찜 저장 ──
+    let saveTimer = null;
+    function persist() {
+      $('saveStatus').textContent = '저장 중...';
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        try { await GC.saveWatch(db, WATCH); $('saveStatus').textContent = '저장됨'; }
+        catch (e) { $('saveStatus').textContent = '저장 실패: ' + e.message; }
+      }, 300);
+    }
+    function toggle(code, fromIdx) {
+      const i = WATCH.findIndex(w => w.c === code);
+      if (i >= 0) {
+        if (!confirm(`${WATCH[i].n} 추적을 그만둘까요?`)) return;
+        WATCH.splice(i, 1);
+      } else {
+        const st = D.byCode.get(code);
+        const from = Number.isFinite(fromIdx) ? fromIdx : D.dates.length - 1;
+        WATCH.push({ c: code, n: st.n, at: D.dates[from] });
+      }
+      persist(); renderAll();
+    }
+    function addFromInput() {
+      const v = $('addInput').value.trim(); if (!v) return;
+      const code = (v.match(/\((\d{6})\)$/) || [])[1];
+      const st = code ? D.byCode.get(code) : D.stocks.find(s => s.n === v || s.c === v);
+      if (!st) { alert('목록에 없는 종목이에요. (코스피·코스닥, 시총 1000억 이상만)'); return; }
+      if (!isWatched(st.c)) toggle(st.c, D.dates.length - 1);
+      $('addInput').value = '';
+    }
+    $('addInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFromInput(); } });
+    document.addEventListener('click', e => {
+      const b = e.target.closest('.star'); if (!b) return;
+      toggle(b.dataset.c, b.dataset.from == null ? NaN : +b.dataset.from);
+    });
+    $('wins').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      WIN = +b.dataset.w;
+      document.querySelectorAll('#wins .btn').forEach(x => x.classList.toggle('on', x === b));
+      computeRecent(); renderRecent();
+    });
+    $('tabs').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      TAB = b.dataset.k;
+      document.querySelectorAll('#tabs .btn').forEach(x => x.classList.toggle('on', x === b));
+      renderRecent();
+    });
+
+    async function loadAll() {
+      try {
+        const [d, watch] = await Promise.all([GC.loadData(), GC.loadWatch(db)]);
+        D = d; WATCH = watch;
+        const lastDate = D.dates[D.dates.length - 1];
+        const partial = D.partialWeek ? ` · <span class="warn">이번 주는 아직 진행 중이라 금요일 마감 뒤 바뀔 수 있어요</span>` : '';
+        $('info').innerHTML = `<b>${esc(D.criteria)}</b><br>기준 주봉 ${ymd(lastDate)} 마감 · 살펴본 종목 ${fmt(D.stocks.length)}개 · 갱신 ${D.updated}${partial}<br>
+          <span class="legend"><span><i style="background:var(--price)"></i>주가</span><span><i style="background:var(--yellow)"></i>5주선</span><span><i style="background:var(--ma20)"></i>20주선</span><span><i class="gc-dot up"></i>거래량 동반 돌파</span><span><i class="gc-dot up weak"></i>거래량 없는 돌파</span><span><i class="gc-dot dn"></i>이탈</span><span>점선 = 기준 주 · 이름을 누르면 네이버 증권</span></span>`;
+        $('stockList').innerHTML = D.stocks.map(s => `<option value="${esc(s.n)} (${s.c})">`).join('');
+        computeRecent();
+        renderAll();
+      } catch (e) {
+        $('info').textContent = '불러오지 못했어요. (' + e.message + ')';
+      }
+    }
+
+    // ━━━━━━━━━━ 로그인 ━━━━━━━━━━
+    let appStarted = false;
+    function handleAuthState(session) {
+      if (session) {
+        $('authView').classList.remove('on');
+        $('appRoot').style.display = '';
+        if (!appStarted) { appStarted = true; setTimeout(loadAll, 0); }
+      } else {
+        if (appStarted) { location.reload(); return; }
+        $('appRoot').style.display = 'none';
+        $('authView').classList.add('on');
+      }
+    }
+    async function loginWithPassword() {
+      const email = $('authEmail').value.trim(), password = $('authPassword').value, err = $('authErr');
+      if (!email || !password) { err.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+      err.textContent = '로그인 중...';
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      err.textContent = error ? '로그인 실패: 이메일 또는 비밀번호를 확인해주세요.' : '';
+    }
+    $('authPassword').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loginWithPassword(); } });
+    $('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('authPassword').focus(); } });
+
+    (async () => {
+      const { data: { session } } = await db.auth.getSession();
+      handleAuthState(session);
+      db.auth.onAuthStateChange((_e, s) => handleAuthState(s));
+    })();
+  </script>
+</body>
+</html>

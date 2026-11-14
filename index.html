@@ -516,7 +516,10 @@
   </div>
 
   <!-- 우리집 자산관리 -->
-  <a class="asset-link" href="assets.html">🏠 우리집 자산관리</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a class="asset-link" href="assets.html">🏠 우리집 자산관리</a>
+    <a class="asset-link" href="screener.html">📈 주봉 골든크로스<span id="gcBadge" style="display:none;margin-left:6px;font-size:11px;font-weight:600;background:#1a1a1a;color:#f2c94c;border-radius:9px;padding:1px 7px;"></span></a>
+  </div>
 
   <!-- 자유노트2 -->
   <div class="free-note">
@@ -560,6 +563,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- 주식+자산 통합 백업 -->
   <script src="backup.js"></script>
+  <script src="gc-core.js"></script>
   <!-- 금리 차트 -->
   <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
 
@@ -2079,6 +2083,8 @@
           appStarted = true;
           // onAuthStateChange 콜백 안에서 바로 DB를 부르면 막힐 수 있어 한 틱 뒤에 시작
           setTimeout(startApp, 0);
+          // 골든크로스 찜 종목 중 이번 주 돌파·이탈 개수를 버튼에 표시
+          setTimeout(() => GC.badge(db, document.getElementById('gcBadge')), 0);
         }
       } else {
         // 로그아웃·세션 만료: 시작된 앱은 새로고침으로 깨끗하게 되돌린다.
