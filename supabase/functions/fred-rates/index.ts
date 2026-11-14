@@ -1,5 +1,6 @@
 // FRED 미국 국채 금리(10년·2년·3개월)를 대시보드에 넘겨주는 함수.
 // 본문에 lead: true를 주면 OECD 경기선행지수(월별)와 S&P500(일별, FRED에는 최근 10년치만 있다)을 준다.
+// risk: true를 주면 하이일드 스프레드·하이일드 금리(최근 3년치만 있다)·10년물·달러 인덱스(일별, 2006년~)를 준다.
 // FRED는 브라우저 직접 호출(CORS)을 막고, API 키를 공개 페이지에 둘 수 없어서 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 FRED_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
 // (verify_jwt는 페이지에 공개된 anon 키도 통과시키므로 사용자 세션을 따로 확인한다)
@@ -12,6 +13,13 @@ const LEAD: Record<string, string> = {
   CLI: "USALOLITOAASTSAM", // OECD 경기선행지수(진폭조정), 월별
   SP500: "SP500",
 };
+const RISK: Record<string, string> = {
+  HY: "BAMLH0A0HYM2", // 하이일드 스프레드(ICE BofA OAS, 국채 대비 %p)
+  HYY: "BAMLH0A0HYM2EY", // 하이일드 채권 금리(%)
+  DGS10: "DGS10",
+  DOLLAR: "DTWEXBGS", // 광의 달러 인덱스(교역 상대국 통화 대비, 2006=100)
+};
+const RISK_START = "2006-01-01";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -55,8 +63,9 @@ Deno.serve(async (req) => {
     const key = Deno.env.get("FRED_API_KEY")?.trim().replace(/^["']|["']$/g, "");
     if (!key) throw new Error("FRED_API_KEY 비밀값이 없습니다");
     const body = await req.json().catch(() => ({}));
-    const start = /^\d{4}-\d{2}-\d{2}$/.test(body?.start ?? "") ? body.start : undefined;
-    const table = body?.lead === true ? LEAD : RATES;
+    const risk = body?.risk === true;
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(body?.start ?? "") ? body.start : risk ? RISK_START : undefined;
+    const table = body?.lead === true ? LEAD : risk ? RISK : RATES;
     const ids = Object.keys(table);
 
     const all = await Promise.all(ids.map((id) => fetchSeries(table[id], key, start)));
