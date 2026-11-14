@@ -1,24 +1,37 @@
 // 한국 금리(국고채 10년·1년, 통안증권 91일)와 경기 지표를 대시보드에 넘겨주는 함수.
-// 본문에 monthly: true를 주면 월별 지표(선행·동행지수 순환변동치), kospi: true를 주면 일별 코스피를 준다.
+// 본문에 monthly: true를 주면 월별 지표(선행·동행지수 순환변동치, 수출금액), kospi: true를 주면 일별 코스피를 준다.
+// valuation: true를 주면 코스피 시가총액(일별)·M2(월별)·명목GDP(분기)를, news: true를 주면 뉴스심리지수(일별)를 준다.
 // ECOS API 키는 주소에 들어가서 공개 페이지에 둘 수 없으므로 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 ECOS_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
 // (verify_jwt는 페이지에 공개된 anon 키도 통과시키므로 사용자 세션을 따로 확인한다)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// [ECOS 통계표, 항목 코드]. 국고채 3개월물은 없어서 통안증권(91일)을 쓴다.
-const DAILY: Record<string, [string, string]> = {
+// [ECOS 통계표, 항목 코드, 주기(없으면 요청 종류에 따른 기본값)]. 국고채 3개월물은 없어서 통안증권(91일)을 쓴다.
+type Item = [string, string, ("D" | "M" | "Q")?];
+const DAILY: Record<string, Item> = {
   KTB10: ["817Y002", "010210000"],
   KTB1: ["817Y002", "010190000"],
   MSB91: ["817Y002", "010400000"],
 };
-const MONTHLY: Record<string, [string, string]> = {
+const MONTHLY: Record<string, Item> = {
   CYCLE: ["901Y067", "I16E"], // 선행지수순환변동치
   COIN: ["901Y067", "I16D"], // 동행지수순환변동치
+  EXPORT: ["901Y118", "T002"], // 통관기준 수출금액(천 달러). 일평균은 대시보드에서 조업일수로 나눈다
 };
-const KOSPI: Record<string, [string, string]> = {
+const KOSPI: Record<string, Item> = {
   KOSPI: ["802Y001", "0001000"],
 };
+const VALUATION: Record<string, Item> = {
+  MCAP: ["802Y001", "0183000", "D"], // 유가증권시장 시가총액(억 원), 2003년부터
+  M2: ["161Y005", "BBHS00", "M"], // M2 평잔·계절조정(십억 원), 2003년 10월부터
+  GDP: ["200Y105", "1400", "Q"], // 명목 국내총생산 원계열 분기(십억 원)
+};
+const VALUATION_START = { D: "20030101", M: "200301", Q: "2002Q1" };
+const NEWS: Record<string, Item> = {
+  NSI: ["523Y001", "A001"], // 뉴스심리지수(실험적 통계), 일별(주말 포함), 매주 월요일 갱신
+};
+const NEWS_START = "20050101";
 const DAILY_START = "19950101";
 const MONTHLY_START = "200001";
 const KOSPI_START = "20000101";
@@ -31,7 +44,7 @@ const CORS = {
 
 const compact = (d: string) => d.replaceAll("-", "");
 
-async function fetchSeries([stat, item]: [string, string], cycle: string, key: string, start: string, end: string) {
+async function fetchSeries([stat, item]: Item, cycle: string, key: string, start: string, end: string) {
   const url = `https://ecos.bok.or.kr/api/StatisticSearch/${encodeURIComponent(key)}/json/kr/1/100000/${stat}/${cycle}/${start}/${end}/${item}`;
   // 주소에 키가 들어 있어 원래 오류 문구는 밖으로 내보내지 않는다
   const res = await fetch(url).catch(() => null);
@@ -46,8 +59,12 @@ async function fetchSeries([stat, item]: [string, string], cycle: string, key: s
   return (json.StatisticSearch.row as { TIME: string; DATA_VALUE: string }[]).map((r) => {
     const t = r.TIME;
     const v = Number(r.DATA_VALUE);
-    // 일별은 YYYYMMDD, 월별은 YYYYMM → 월별은 1일로 맞춘다
-    return [`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8) || "01"}`, r.DATA_VALUE === "" || Number.isNaN(v) ? null : v] as const;
+    // 일별은 YYYYMMDD, 월별은 YYYYMM, 분기는 YYYYQn → 월별·분기는 첫날로 맞춘다
+    const q = t.match(/^(\d{4})Q(\d)$/);
+    const date = q
+      ? `${q[1]}-${String((+q[2] - 1) * 3 + 1).padStart(2, "0")}-01`
+      : `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8) || "01"}`;
+    return [date, r.DATA_VALUE === "" || Number.isNaN(v) ? null : v] as const;
   });
 }
 
@@ -70,17 +87,24 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const monthly = body?.monthly === true;
     const kospi = body?.kospi === true;
-    const table = monthly ? MONTHLY : kospi ? KOSPI : DAILY;
+    const valuation = body?.valuation === true;
+    const news = body?.news === true;
+    const table = valuation ? VALUATION : news ? NEWS : monthly ? MONTHLY : kospi ? KOSPI : DAILY;
     const today = compact(new Date().toISOString().slice(0, 10));
     const start = monthly
       ? MONTHLY_START
       : kospi
       ? KOSPI_START
+      : news
+      ? NEWS_START
       : /^\d{4}-\d{2}-\d{2}$/.test(body?.start ?? "") ? compact(body.start) : DAILY_START;
-    const end = monthly ? today.slice(0, 6) : today;
+    const ends = { D: today, M: today.slice(0, 6), Q: `${today.slice(0, 4)}Q${Math.ceil(+today.slice(4, 6) / 3)}` };
 
     const ids = Object.keys(table);
-    const all = await Promise.all(ids.map((id) => fetchSeries(table[id], monthly ? "M" : "D", key, start, end)));
+    const all = await Promise.all(ids.map((id) => {
+      const cycle = table[id][2] ?? (monthly ? "M" : "D");
+      return fetchSeries(table[id], cycle, key, valuation ? VALUATION_START[cycle] : start, ends[cycle]);
+    }));
 
     // 날짜를 하나로 맞춘 표: dates[i]일 때 각 금리 값
     const dates = [...new Set(all.flatMap((s) => s.map(([d]) => d)))].sort();

@@ -449,37 +449,53 @@
   <!-- 금리차·경기선행 차트 (미국 FRED, 한국 ECOS) -->
   <div class="section">
     <div class="section-title rates-head">
-      <span>장단기 금리차</span>
+      <span>장단기 금리차 · 미국 경기선행</span>
       <span class="rates-range" id="ratesRange"></span>
     </div>
     <div class="rates-panels">
       <div class="rates-wrap">
-        <div class="rates-title">미국 장단기 금리차</div>
-        <div class="rates-legend" id="ratesLegendUS"></div>
-        <div class="rates-chart" id="ratesChartUS"><div class="rates-msg">금리 불러오는 중...</div></div>
-        <div class="rates-foot">출처: FRED (DGS10 · DGS2 · DGS3MO), 일별</div>
+        <div class="rates-title">한·미 장단기 금리차 (10년-3개월)</div>
+        <div class="rates-legend" id="ratesLegendSPREAD"></div>
+        <div class="rates-chart" id="ratesChartSPREAD"><div class="rates-msg">금리 불러오는 중...</div></div>
+        <div class="rates-foot">출처: FRED (DGS10 · DGS3MO) · 한국은행 ECOS (국고채 10년, 3개월은 통안증권 91일), 일별</div>
       </div>
       <div class="rates-wrap">
-        <div class="rates-title">한국 장단기 금리차</div>
-        <div class="rates-legend" id="ratesLegendKR"></div>
-        <div class="rates-chart" id="ratesChartKR"><div class="rates-msg">금리 불러오는 중...</div></div>
-        <div class="rates-foot">출처: 한국은행 ECOS (국고채 10년·1년, 3개월은 통안증권 91일), 일별</div>
+        <div class="rates-title">미국 경기선행지수와 S&amp;P500</div>
+        <div class="rates-legend" id="ratesLegendUSLEAD"></div>
+        <div class="rates-chart" id="ratesChartUSLEAD"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">출처: FRED · 미국 경기선행지수는 OECD 산출(USALOLITOAASTSAM, 100 = 장기 추세) 월별 · S&amp;P500 일별(FRED 제공 기간 최근 10년)</div>
       </div>
       <div class="section-title rates-head rates-sub">
         <span>한국 경기선행</span>
         <span class="rates-range" id="monthlyRange"></span>
       </div>
       <div class="rates-wrap">
-        <div class="rates-title">장단기 금리차와 선행지수</div>
+        <div class="rates-title">일평균 수출과 선행지수</div>
         <div class="rates-legend" id="ratesLegendLEAD"></div>
         <div class="rates-chart" id="ratesChartLEAD"><div class="rates-msg">불러오는 중...</div></div>
-        <div class="rates-foot">주: 장단기금리차가 선행지수에 1개월 선행(김영익, 월별 기준 상관계수 0.73) · 출처: 한국은행 ECOS, 금리차 일별 · 선행지수 월별</div>
+        <div class="rates-foot">주: 일평균 수출 = 통관 수출액 ÷ 조업일수(평일 1·토요일 0.5·공휴일 0, 산업통상부 방식) · 출처: 한국은행 ECOS, 월별</div>
       </div>
       <div class="rates-wrap">
         <div class="rates-title">선행·동행지수와 코스피</div>
         <div class="rates-legend" id="ratesLegendCI"></div>
         <div class="rates-chart" id="ratesChartCI"><div class="rates-msg">불러오는 중...</div></div>
         <div class="rates-foot">출처: 한국은행 ECOS, 순환변동치 월별 · 코스피 일별</div>
+      </div>
+      <div class="section-title rates-head rates-sub">
+        <span>코스피 밸류에이션 · 뉴스심리</span>
+        <span class="rates-range" id="valRange"></span>
+      </div>
+      <div class="rates-wrap">
+        <div class="rates-title">시가총액과 기준별 적정 시총</div>
+        <div class="rates-legend" id="ratesLegendVALFAIR"></div>
+        <div class="rates-chart" id="ratesChartVALFAIR"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">적정 시총 = 기준 지표 × 시총/기준 비율의 장기 추세(2003년 10월~, 김영익 교수 방식) · 시총 선이 위면 추세보다 비싸다 · 기준: 명목GDP 최근 4분기 합, M2 평잔, 일평균 수출 최근 3개월 평균(달러) · 세로축 로그 · 출처: 한국은행 ECOS</div>
+      </div>
+      <div class="rates-wrap">
+        <div class="rates-title">뉴스심리지수와 코스피</div>
+        <div class="rates-legend" id="ratesLegendNSI"></div>
+        <div class="rates-chart" id="ratesChartNSI"><div class="rates-msg">불러오는 중...</div></div>
+        <div class="rates-foot">언론 기사의 긍정·부정을 AI로 지수화(한국은행 실험적 통계, 장기 평균 100) · 선행지수에 약 3개월 앞서고 주가에도 앞선다(김영익) · 매주 월요일 갱신 · 출처: 한국은행 ECOS, 코스피 일별</div>
       </div>
     </div>
   </div>
@@ -564,6 +580,8 @@
   <!-- 주식+자산 통합 백업 -->
   <script src="backup.js"></script>
   <script src="gc-core.js"></script>
+  <script src="exports-core.js"></script>
+  <script src="valuation-core.js"></script>
   <!-- 금리 차트 -->
   <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
 
@@ -1763,53 +1781,107 @@
     //  처음엔 최근 10년치만 받고, '전체'를 누를 때 전체 기간을 다시 받는다.
     // ════════════════════════════════════════════════════════
     const LINE_ORANGE = '#d95926', LINE_BLUE = '#3987e5', LINE_GREEN = '#199e70';
-    // rates: 범례에 쓰는 금리. 첫 번째(10년)에서 나머지를 뺀 값이 금리차 선이 된다.
-    const RATE_PANELS = [
-      { key: 'US', fn: 'fred-rates', rates: [
-        { id: 'DGS10',  name: '10년' },
-        { id: 'DGS2',   name: '2년' },
-        { id: 'DGS3MO', name: '3개월' },
-      ] },
-      { key: 'KR', fn: 'kr-rates', rates: [
-        { id: 'KTB10', name: '10년' },
-        { id: 'KTB1',  name: '1년' },
-        { id: 'MSB91', name: '3개월' },
-      ] },
-    ].map(p => {
-      const lines = p.rates.slice(1).map((r, j) => ({ name: '10년-' + r.name, k: j + 1, color: [LINE_ORANGE, LINE_BLUE][j] }));
-      return { ...p, lines, unit: '%', zero: 'y', legend: ratesLegend, cache: {}, plot: null, view: null };
-    });
+    // 금리 자료를 받는 곳. 처음엔 최근 10년치만 받고, '전체'를 누를 때 전체 기간을 받는다.
+    const RATE_SOURCES = {
+      US: { fn: 'fred-rates', cache: {} },
+      KR: { fn: 'kr-rates', cache: {} },
+    };
 
-    // 아랫줄 두 차트는 월별 순환변동치에 일별 지표(금리차, 코스피)를 겹친다. 왼쪽 축 y, 오른쪽 축 y2.
-    // '전체'는 since부터 최신 자료까지. 축은 김영익 교수 영상(3:44, 2:28) 차트에 맞췄다.
-    const krSpread = d => d.series.KTB10.map((v, i) =>
-      v == null || d.series.KTB1[i] == null ? null : +(v - d.series.KTB1[i]).toFixed(2));
-    const signedPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%p';
+    // 윗줄 첫 칸: 한·미 10년-3개월 금리차를 한 축에 겹친다(둘 다 %p라 축을 나누지 않는다).
+    // 3개월은 미국 국채 3개월, 한국은 통안증권 91일(국고채 3개월물이 없다).
+    const SPREAD_PANEL = {
+      key: 'SPREAD', group: 'rates', unit: '%', zero: 'y', legend: spreadLegend, plot: null, view: null, lines: [
+        { name: '미국', long: 'DGS10', short: 'DGS3MO', color: LINE_BLUE },
+        { name: '한국', long: 'KTB10', short: 'MSB91', color: LINE_ORANGE },
+      ],
+    };
+
+    // 선행지수(월별)에 다른 지표를 겹치는 차트들. 왼쪽 축 y, 오른쪽 축 y2.
+    // group: 어느 줄의 기간 버튼을 따르는지. '전체'는 since부터 최신 자료까지.
+    // 일평균 수출은 월 수출액을 조업일수로 나눈 값(억 달러). 평일 휴일을 찾으려고 국고채 금리 날짜를 함께 받는다.
+    // 코스피 차트 축은 김영익 교수 영상(2:28) 차트에 맞췄다.
+    const exportAvg = d => {
+      const r = ExportCore.dailyAvg(d, d);
+      const byDate = new Map(r.dates.map((x, i) => [x, r.values[i]]));
+      return d.dates.map(x => byDate.get(x) ?? null);
+    };
     const fixed1 = v => v.toFixed(1);
     const fixed0 = v => v.toFixed(0).replace(/\B(?=(\d{3})+$)/g, ',');
-    const MONTHLY_PANELS = [
-      { key: 'LEAD', daily: () => fetchRates(RATE_PANELS[1], true), unit: '', unit2: '%', zero: 'y2', since: '2015-01-01', range: [97, 106], range2: [-0.4, 2], lines: [
-        { name: '선행지수 순환변동치', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
-        { name: '장단기금리차', color: LINE_ORANGE, scale: 'y2', fmt: signedPct, get: krSpread },
+    const krMonthly = () => fetchOnce('kr-rates', 'monthly', { monthly: true });
+    const LEAD_PANELS = [
+      // FRED의 S&P500은 최근 10년치만 있어서 '전체'도 그때부터
+      { key: 'USLEAD', group: 'rates', load: () => fetchOnce('fred-rates', 'lead', { lead: true }), unit: '', unit2: '', zero: null, since: '2016-11-01', lines: [
+        { name: '미국 선행지수', color: LINE_BLUE, fmt: v => v.toFixed(2), get: d => d.series.CLI },
+        { name: 'S&P500', color: LINE_ORANGE, scale: 'y2', fmt: fixed0, get: d => d.series.SP500 },
       ] },
-      { key: 'CI', daily: () => fetchKrOnce('kospi', { kospi: true }), unit: '', unit2: '', zero: null, since: '2000-01-01', range: [94, 106], range2: [0, 9000], lines: [
+      { key: 'LEAD', group: 'monthly', load: async () => mergeDaily(await krMonthly(), await fetchRates(RATE_SOURCES.KR, true)),
+        unit: '', unit2: '', zero: null, since: '2015-01-01', range: [97, 106], range2: [10, 60], lines: [
+        { name: '선행지수 순환변동치', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
+        { name: '일평균 수출', color: LINE_ORANGE, scale: 'y2', fmt: v => v.toFixed(1) + '억$', get: exportAvg },
+      ] },
+      { key: 'CI', group: 'monthly', load: async () => mergeDaily(await krMonthly(), await fetchOnce('kr-rates', 'kospi', { kospi: true })),
+        unit: '', unit2: '', zero: null, since: '2000-01-01', range: [94, 106], range2: [0, 9000], lines: [
         { name: '선행', color: LINE_BLUE, fmt: fixed1, get: d => d.series.CYCLE },
         { name: '동행', color: LINE_GREEN, fmt: fixed1, get: d => d.series.COIN },
         { name: '코스피', color: LINE_ORANGE, scale: 'y2', fmt: fixed0, get: d => d.series.KOSPI },
       ] },
     ].map(p => ({ ...p, legend: monthlyLegend, plot: null, view: null }));
-    const krOnce = {};
+
+    // 맨 아랫줄: 코스피 시가총액을 명목GDP·M2·일평균 수출과 비교한다(계산은 valuation-core.js).
+    // 추세선은 고른 기간과 관계없이 전체 기간(2003년 10월~)으로 구한다. 옆 칸은 뉴스심리지수.
+    const VAL_NAMES = { GDP: 'GDP', M2: 'M2', EXP: '수출' };
+    const VAL_COLORS = { GDP: LINE_BLUE, M2: LINE_GREEN, EXP: LINE_ORANGE };
+    let valuationOnce = null;
+    function loadValuation() {
+      if (!valuationOnce) {
+        valuationOnce = Promise.all([
+          fetchOnce('kr-rates', 'valuation', { valuation: true }),
+          krMonthly(),
+          fetchRates(RATE_SOURCES.KR, true),
+        ]).then(([val, monthly, rates]) => ValCore.build(val, ExportCore.dailyAvg(monthly, rates)))
+          .catch(e => { valuationOnce = null; throw e; });
+      }
+      return valuationOnce;
+    }
+    // 로그 축 눈금: 1·2·5로 시작하는 값만 글자를 쓴다(조 원)
+    const logValues = (u, splits) => splits.map(v => {
+      const m = v / 10 ** Math.floor(Math.log10(v));
+      return [1, 2, 5].some(x => Math.abs(m - x) < 1e-6) ? fixed0(v) + '조' : '';
+    });
+    const VAL_PANELS = [
+      { key: 'VALFAIR', log: true, yValues: logValues, legend: valFairLegend, lines: [
+        { name: '시가총액', color: '#e2e2e2', get: d => d.series.MCAP },
+        ...ValCore.KEYS.map(k => ({ name: VAL_NAMES[k] + ' 기준', key: k, color: VAL_COLORS[k], get: d => d.series['FAIR_' + k] })),
+      ] },
+      // 뉴스심리지수: 일별은 출렁임이 커서 3개월(91일, 주말 포함) 이동평균을 굵게 같이 그린다. 코스피는 오른쪽 축.
+      { key: 'NSI', load: loadNews, zero: 'y', zeroAt: 100, unit2: '', since: '2005-01-01', legend: monthlyLegend, lines: [
+        { name: '일별', color: '#4a4a4a', daily: true, fmt: fixed1, get: d => d.series.NSI },
+        { name: '3개월 이동평균', color: LINE_BLUE, width: 2, daily: true, fmt: fixed1, get: d => d.series.NSI_MA },
+        { name: '코스피', color: LINE_ORANGE, scale: 'y2', daily: true, fmt: fixed0, get: d => d.series.KOSPI },
+      ] },
+    ].map(p => ({ unit: '', zero: null, load: loadValuation, since: '2003-01-01', ...p, group: 'val', plot: null, view: null }));
+    async function loadNews() {
+      const [news, kospi] = await Promise.all([fetchOnce('kr-rates', 'news', { news: true }), fetchOnce('kr-rates', 'kospi', { kospi: true })]);
+      // 이동평균은 주말까지 매일 있는 뉴스심리지수 날짜로 먼저 구한 뒤 코스피 날짜와 합친다
+      const withMa = { dates: news.dates, series: { ...news.series, NSI_MA: ValCore.movingAvg(news.series.NSI, 91) } };
+      return mergeDaily(withMa, kospi);
+    }
+    const onceCache = {};
     // [코드, 버튼 글자, 개월 수(0 = 전체)]
     const RATE_RANGES = [
-      ['1Y', '1년', 12], ['3Y', '3년', 36], ['5Y', '5년', 60], ['10Y', '10년', 120], ['ALL', '전체', 0],
+      ['6M', '6개월', 6], ['1Y', '1년', 12], ['3Y', '3년', 36], ['5Y', '5년', 60], ['10Y', '10년', 120], ['ALL', '전체', 0],
     ];
-    let ratesRange = '1Y', monthlyRange = 'ALL';
+    let ratesRange = '1Y', monthlyRange = 'ALL', valRange = 'ALL';
     try {
       ratesRange = localStorage.getItem('ratesRange') || '1Y';
       monthlyRange = localStorage.getItem('monthlyRange') || 'ALL';
+      valRange = localStorage.getItem('valRange') || 'ALL';
     } catch (e) {}
     if (!RATE_RANGES.some(r => r[0] === ratesRange)) ratesRange = '1Y';
     if (!RATE_RANGES.some(r => r[0] === monthlyRange)) monthlyRange = 'ALL';
+    if (!RATE_RANGES.some(r => r[0] === valRange)) valRange = 'ALL';
+    // 차트가 따르는 기간 버튼의 현재 값
+    const rangeOf = p => p.group === 'rates' ? ratesRange : p.group === 'val' ? valRange : monthlyRange;
 
     async function invokeRates(fn, body) {
       const { data, error } = await db.functions.invoke(fn, { body });
@@ -1821,20 +1893,21 @@
       return data;
     }
 
-    async function fetchRates(p, full) {
+    async function fetchRates(src, full) {
       const key = full ? 'full' : 'recent';
-      if (p.cache[key]) return p.cache[key];
+      if (src.cache[key]) return src.cache[key];
       const start = new Date();
       start.setMonth(start.getMonth() - 121);
-      return (p.cache[key] = await invokeRates(p.fn, full ? {} : { start: start.toISOString().slice(0, 10) }));
+      return (src.cache[key] = await invokeRates(src.fn, full ? {} : { start: start.toISOString().slice(0, 10) }));
     }
 
     // 두 차트가 동시에 불러도 한 번만 받는다. 실패하면 다음에 다시 받는다.
-    function fetchKrOnce(key, body) {
-      if (!krOnce[key]) {
-        krOnce[key] = invokeRates('kr-rates', body).catch(e => { delete krOnce[key]; throw e; });
+    function fetchOnce(fn, key, body) {
+      const id = fn + ':' + key;
+      if (!onceCache[id]) {
+        onceCache[id] = invokeRates(fn, body).catch(e => { delete onceCache[id]; throw e; });
       }
-      return krOnce[key];
+      return onceCache[id];
     }
 
     function renderRangeBox(id, current, pick) {
@@ -1856,24 +1929,32 @@
     function renderRateButtons() {
       renderRangeBox('ratesRange', ratesRange, code => { ratesRange = code; });
       renderRangeBox('monthlyRange', monthlyRange, code => { monthlyRange = code; });
+      renderRangeBox('valRange', valRange, code => { valRange = code; });
     }
 
     // 한쪽이 실패해도 다른 쪽은 그려지도록 칸마다 따로 불러온다
     function loadRates() {
       renderRateButtons();
-      RATE_PANELS.forEach(loadRatePanel);
-      MONTHLY_PANELS.forEach(loadMonthlyPanel);
+      loadSpreadPanel(SPREAD_PANEL);
+      LEAD_PANELS.forEach(loadLeadPanel);
+      VAL_PANELS.forEach(loadLeadPanel);
     }
 
-    async function loadRatePanel(p) {
+    // 미국·한국 중 한쪽 금리만 받아져도 그 나라 선은 그린다
+    async function loadSpreadPanel(p) {
       try {
-        drawRates(p, await fetchRates(p, ratesRange === 'ALL'));
+        const full = ratesRange === 'ALL';
+        const got = await Promise.allSettled([fetchRates(RATE_SOURCES.US, full), fetchRates(RATE_SOURCES.KR, full)]);
+        const ok = got.filter(r => r.status === 'fulfilled').map(r => r.value);
+        got.forEach((r, i) => { if (r.status === 'rejected') console.error('금리 데이터 로드 실패:', ['US', 'KR'][i], r.reason); });
+        if (!ok.length) throw got[0].reason;
+        drawSpread(p, ok.reduce((a, b) => mergeDaily(a, b)));
       } catch (e) {
         showRatesError(p, e);
       }
     }
 
-    // 월별 자료에 일별 자료를 합친 표. 그날 값이 없는 칸은 비워 둔다.
+    // 두 표를 날짜로 합친다. 그날 값이 없는 칸은 비워 둔다.
     function mergeDaily(m, d) {
       const dates = [...new Set([...m.dates, ...d.dates])].sort();
       const pick = (ds, arr) => {
@@ -1886,9 +1967,9 @@
       return { dates, series };
     }
 
-    async function loadMonthlyPanel(p) {
+    async function loadLeadPanel(p) {
       try {
-        drawMonthly(p, mergeDaily(await fetchKrOnce('monthly', { monthly: true }), await p.daily()));
+        drawMonthly(p, await p.load());
       } catch (e) {
         showRatesError(p, e);
       }
@@ -1910,8 +1991,8 @@
     }
 
     // '전체'일 땐 정해 둔 축 범위(값이 그 밖으로 나가면 넓힌다), 짧은 기간은 값에 맞춘 축
-    const monthlyAxis = ([lo, hi]) => (u, min, max) => {
-      if (monthlyRange === 'ALL') return [Math.min(lo, min ?? lo), Math.max(hi, max ?? hi)];
+    const monthlyAxis = (p, [lo, hi]) => (u, min, max) => {
+      if (rangeOf(p) === 'ALL') return [Math.min(lo, min ?? lo), Math.max(hi, max ?? hi)];
       if (min == null) return [lo, hi];
       const pad = (max - min) * 0.1 || 0.5;
       return [min - pad, max + pad];
@@ -1932,7 +2013,8 @@
         tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), 'Etc/UTC'),
         scales: {
           x: { time: true },
-          ...(p.range ? { y: { range: monthlyAxis(p.range) }, y2: { range: monthlyAxis(p.range2) } } : {}),
+          ...(p.log ? { y: { distr: 3 } } : {}),
+          ...(p.range ? { y: { range: monthlyAxis(p, p.range) }, y2: { range: monthlyAxis(p, p.range2) } } : {}),
         },
         axes: [
           { ...axis, space: 60, values: (u, splits, ai, space, incr) => splits.map(s => {
@@ -1941,20 +2023,20 @@
               if (incr >= 28 * DAY) return `${String(y).slice(2)}.${m}`;
               return `${m}/${d.getUTCDate()}`;
             }) },
-          { ...axis, size: 46, values: axisValues(p.unit) },
+          { ...axis, size: p.log ? 52 : 46, values: p.yValues || axisValues(p.unit) },
           ...(p.unit2 != null
             ? [{ ...axis, scale: 'y2', side: 1, size: 46, grid: { show: false }, values: axisValues(p.unit2) }]
             : []),
         ],
         series: [{}, ...p.lines.map(s => ({
-          label: s.name, stroke: s.color, width: 1, spanGaps: true, points: { show: false }, scale: s.scale || 'y',
+          label: s.name, stroke: s.color, width: s.width || 1, spanGaps: true, points: { show: false }, scale: s.scale || 'y',
         }))],
         hooks: {
           setCursor: [u => p.legend(p, u.cursor.idx)],
-          // 0% 기준선: 선이 이 아래로 내려가면 역전
+          // 기준선: 금리차는 0%(이 아래면 역전), 뉴스심리지수는 장기 평균 100
           draw: [u => {
             if (!p.zero) return;
-            const y = u.valToPos(0, p.zero, true), { left, top, width, height } = u.bbox;
+            const y = u.valToPos(p.zeroAt ?? 0, p.zero, true), { left, top, width, height } = u.bbox;
             if (y < top || y > top + height) return;
             u.ctx.save();
             u.ctx.strokeStyle = '#666';
@@ -1978,14 +2060,15 @@
       return Math.max(0, dates.findIndex(d => d >= cut.toISOString().slice(0, 10)));
     }
 
-    function drawRates(p, data) {
+    function drawSpread(p, data) {
       const from = rangeStart(data.dates, ratesRange);
       const dates = data.dates.slice(from);
-      const ys = p.rates.map(r => data.series[r.id].slice(from));
+      const col = id => data.series[id] ? data.series[id].slice(from) : dates.map(() => null);
+      const rates = p.lines.map(l => ({ long: col(l.long), short: col(l.short) }));
       // 두 금리가 다 있는 날만 금리차를 계산한다
-      const spreads = p.lines.map(s =>
-        ys[0].map((v, i) => v == null || ys[s.k][i] == null ? null : +(v - ys[s.k][i]).toFixed(2)));
-      p.view = { dates, ys };
+      const spreads = rates.map(r =>
+        r.long.map((v, i) => v == null || r.short[i] == null ? null : +(v - r.short[i]).toFixed(2)));
+      p.view = { dates, rates, spreads };
       plotRates(p, [dates.map(d => Date.parse(d) / 1000), ...spreads]);
     }
 
@@ -1995,12 +2078,13 @@
       let n = data.dates.length;
       while (n > 0 && all.every(y => y[n - 1] == null)) n--;
       const allDates = data.dates.slice(0, n);
-      const from = monthlyRange === 'ALL'
+      const range = rangeOf(p);
+      const from = range === 'ALL'
         ? Math.max(0, allDates.findIndex(d => d >= p.since))
-        : rangeStart(allDates, monthlyRange);
+        : rangeStart(allDates, range);
       const dates = allDates.slice(from);
       const ys = all.map(y => y.slice(from, n));
-      p.view = { dates, ys };
+      p.view = { dates, ys, src: data, from };
       plotRates(p, [dates.map(d => Date.parse(d) / 1000), ...ys]);
     }
 
@@ -2021,27 +2105,42 @@
       p.legend(p, null);
     }
 
-    // 범례 = 값 표시줄. 커서가 없으면 가장 최근 값, 있으면 그날 값.
-    function ratesLegend(p, idx) {
+    // 금리차 범례 = 값 표시줄. 커서가 없으면 가장 최근 값, 있으면 그날 값.
+    // 두 나라 휴일이 달라 그날 값이 비어 있으면 직전 값을 쓴다.
+    function spreadLegend(p, idx) {
+      if (!p.view) return;
+      const { dates, rates, spreads } = p.view;
+      const i = idx ?? dates.length - 1;
+      document.getElementById('ratesLegend' + p.key).innerHTML =
+        `<span class="date">${dates[i]}</span>` +
+        p.lines.map((l, k) => {
+          let j = i;
+          while (j >= 0 && spreads[k][j] == null) j--;
+          if (j < 0) return '';
+          const d = spreads[k][j], r = rates[k];
+          return `<span><i style="background:${l.color}"></i>${l.name} <b>${d >= 0 ? '+' : ''}${d.toFixed(2)}%p</b>` +
+            `${d < 0 ? '<span class="inv">역전</span>' : ''} <span class="date">10년 ${r.long[j].toFixed(2)}% · 3개월 ${r.short[j].toFixed(2)}%</span></span>`;
+        }).join('');
+    }
+
+    // 적정 시총 차트의 값 표시줄: 시총과 기준별 적정 시총, 시총이 몇 % 위·아래인지
+    function valFairLegend(p, idx) {
       if (!p.view) return;
       const { dates, ys } = p.view;
       const i = idx ?? dates.length - 1;
-      // 휴일처럼 그날 값이 비어 있으면 직전 값을 쓴다
-      const val = k => { for (let j = i; j >= 0; j--) if (ys[k][j] != null) return ys[k][j]; return null; };
-      const v = p.rates.map((r, k) => val(k));
-      const pct = x => x == null ? '–' : x.toFixed(2) + '%';
-      const spread = (label, a, b) => {
-        if (a == null || b == null) return '';
-        const d = a - b;
-        return `<span>${label} <b>${d >= 0 ? '+' : ''}${d.toFixed(2)}%p</b>${d < 0 ? '<span class="inv">역전</span>' : ''}</span>`;
-      };
+      const cap = ys[0][i];
       document.getElementById('ratesLegend' + p.key).innerHTML =
         `<span class="date">${dates[i]}</span>` +
-        p.rates.map((r, k) => `<span>${r.name} <b>${pct(v[k])}</b></span>`).join('') +
-        p.lines.map(s => spread(`<i style="background:${s.color}"></i>${s.name}`, v[0], v[s.k])).join('');
+        p.lines.map((l, k) => {
+          const v = ys[k][i];
+          if (v == null) return '';
+          const gap = k === 0 ? '' : ` (시총 ${cap >= v ? '+' : ''}${((cap / v - 1) * 100).toFixed(0)}%)`;
+          return `<span><i style="background:${l.color}"></i>${l.name} <b>${fixed0(v)}조</b>${gap}</span>`;
+        }).join('');
     }
 
-    // 아랫줄 차트의 값 표시줄. 지표마다 발표 시점이 달라 비어 있으면 직전 값을 쓴다.
+
+    // 선행지수 차트의 값 표시줄. 지표마다 발표 시점이 달라 비어 있으면 직전 값을 쓴다.
     function monthlyLegend(p, idx) {
       if (!p.view) return;
       const { dates, ys } = p.view;
@@ -2051,8 +2150,9 @@
         `<span class="date">${dates[i]}</span>` +
         p.lines.map((l, k) => {
           const j = at(k);
-          // 그달 값이 아직 없으면 몇 월 값인지 밝힌다
-          const old = j >= 0 && j !== i ? ` (${+dates[j].slice(5, 7)}월)` : '';
+          // 그날 값이 아직 없으면 언제 값인지 밝힌다(월별 지표는 몇 월, 일별 지표는 날짜)
+          const old = j >= 0 && j !== i
+            ? ` (${l.daily ? `${+dates[j].slice(5, 7)}/${+dates[j].slice(8, 10)}` : `${+dates[j].slice(5, 7)}월`})` : '';
           return `<span><i style="background:${l.color}"></i>${l.name} <b>${j < 0 ? '–' : l.fmt(ys[k][j])}</b>${old}</span>`;
         }).join('');
     }

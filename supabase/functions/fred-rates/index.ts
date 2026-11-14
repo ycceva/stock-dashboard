@@ -1,11 +1,17 @@
 // FRED 미국 국채 금리(10년·2년·3개월)를 대시보드에 넘겨주는 함수.
+// 본문에 lead: true를 주면 OECD 경기선행지수(월별)와 S&P500(일별, FRED에는 최근 10년치만 있다)을 준다.
 // FRED는 브라우저 직접 호출(CORS)을 막고, API 키를 공개 페이지에 둘 수 없어서 여기서 대신 받아온다.
 // 키는 Supabase 함수 비밀값 FRED_API_KEY에 둔다. 로그인한 사용자만 부를 수 있다.
 // (verify_jwt는 페이지에 공개된 anon 키도 통과시키므로 사용자 세션을 따로 확인한다)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SERIES = ["DGS10", "DGS2", "DGS3MO"];
+// 대시보드에서 쓰는 이름 → FRED 계열 코드
+const RATES: Record<string, string> = { DGS10: "DGS10", DGS2: "DGS2", DGS3MO: "DGS3MO" };
+const LEAD: Record<string, string> = {
+  CLI: "USALOLITOAASTSAM", // OECD 경기선행지수(진폭조정), 월별
+  SP500: "SP500",
+};
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -50,14 +56,16 @@ Deno.serve(async (req) => {
     if (!key) throw new Error("FRED_API_KEY 비밀값이 없습니다");
     const body = await req.json().catch(() => ({}));
     const start = /^\d{4}-\d{2}-\d{2}$/.test(body?.start ?? "") ? body.start : undefined;
+    const table = body?.lead === true ? LEAD : RATES;
+    const ids = Object.keys(table);
 
-    const all = await Promise.all(SERIES.map((id) => fetchSeries(id, key, start)));
+    const all = await Promise.all(ids.map((id) => fetchSeries(table[id], key, start)));
 
     // 날짜를 하나로 맞춘 표: dates[i]일 때 각 금리 값
     const dates = [...new Set(all.flatMap((s) => s.map(([d]) => d)))].sort();
     const index = new Map(dates.map((d, i) => [d, i]));
     const series: Record<string, (number | null)[]> = {};
-    SERIES.forEach((id, k) => {
+    ids.forEach((id, k) => {
       const arr = new Array(dates.length).fill(null);
       for (const [d, v] of all[k]) arr[index.get(d)!] = v;
       series[id] = arr;
