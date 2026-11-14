@@ -1,10 +1,11 @@
-# 매주 금요일 장 마감 뒤(한국 시간 17:00) 전 종목 주봉을 다시 받아 data/weekly.json을 갱신한다.
+# 평일 매일 장 마감 뒤(한국 시간 17:00) 전 종목 주봉을 다시 받아 data/weekly.json을 갱신한다.
+# 월~목은 진행 중인 주봉이라 화면에 '잠정'으로, 금요일 결과가 확정.
 # 깃허브 Actions 화면에서 "Run workflow"를 누르면 언제든 바로 돌릴 수 있다.
 name: 주봉 골든크로스 스캔
 
 on:
   schedule:
-    - cron: "0 8 * * 5"   # UTC 08:00 = 한국 17:00, 금요일
+    - cron: "0 8 * * 1-5"   # UTC 08:00 = 한국 17:00, 월~금
   workflow_dispatch:
 
 permissions:

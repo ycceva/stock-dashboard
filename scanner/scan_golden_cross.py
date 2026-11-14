@@ -6,6 +6,9 @@
 그래서 찜한 종목이 몇 주 뒤에 내려가거나 다시 올라가도 계속 따라갈 수 있다.
 
 데이터: 네이버 증권 공개 시세(시가총액 순위 목록, 주봉 차트). 파이썬 기본 기능만 쓴다.
+평일 매일 17시(KST) 자동 실행. 월~목 결과는 진행 중인 주봉이라 '잠정'이고,
+그 주 거래량은 지난 거래일 수로 나눠 한 주 치로 늘려(×5/거래일 수) 비교한다. 금요일 결과가 확정.
+
 실행: python3 scanner/scan_golden_cross.py
 """
 import json
@@ -15,7 +18,7 @@ import time
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 MIN_MCAP = 100_000_000_000  # 1000억 원
@@ -75,16 +78,37 @@ def weekly(stock):
     return stock, rows, None
 
 
-def vol_ratio(vols, n=20):
-    """주마다 거래량 ÷ 직전 n주 평균 거래량 (소수 첫째 자리). 앞 n주는 비워 둔다."""
+def vol_ratio(vols, scale_last=1.0, n=20):
+    """주마다 거래량 ÷ 직전 n주 평균 거래량 (소수 첫째 자리). 앞 n주는 비워 둔다.
+    scale_last: 진행 중인 주의 거래량을 한 주 치로 늘리는 배수(화요일까지면 5/2)."""
     out = []
     for i, v in enumerate(vols):
         prev = [x for x in vols[max(0, i - n):i] if x is not None]
         if v is None or len(prev) < n or sum(prev) == 0:
             out.append(None)
         else:
+            if i == len(vols) - 1:
+                v *= scale_last
             out.append(round(v / (sum(prev) / n), 1))
     return out
+
+
+def ymd_date(s):
+    return date(int(s[:4]), int(s[4:6]), int(s[6:]))
+
+
+def week_status(last_bar, now):
+    """마지막 주봉이 진행 중인지, 그 주에 거래일이 며칠 지났는지.
+    금요일 15:30 장 마감 전이고 마지막 주봉이 이번 주 것이면 진행 중(잠정)."""
+    last = ymd_date(last_bar)
+    monday = last - timedelta(days=last.weekday())
+    this_monday = now.date() - timedelta(days=now.weekday())
+    before_close = now.weekday() < 4 or (now.weekday() == 4 and (now.hour, now.minute) < (15, 30))
+    partial = last >= this_monday and before_close
+    # 그 주 거래일 수: 삼성전자 일봉으로 센다
+    xml = get("https://fchart.stock.naver.com/sise.nhn?symbol=005930&timeframe=day&count=10&requestType=0").decode("euc-kr", "ignore")
+    days = sum(1 for d in re.findall(r'data="(\d{8})\|', xml) if monday <= ymd_date(d) <= last)
+    return partial, max(days, 1)
 
 
 def main():
@@ -101,6 +125,10 @@ def main():
     need = max(1, len(universe) // 2)
     dates = sorted(d for d, n in count.items() if n >= need)[-WEEKS:]
 
+    now = datetime.now(KST)
+    partial, days = week_status(dates[-1], now)
+    scale = 5 / days if partial else 1.0
+
     stocks = []
     for s, rows, e in fetched:
         if not rows:
@@ -116,20 +144,21 @@ def main():
             "m": "P" if s["market"] == "KOSPI" else "D",
             "cap": round(s["mcap"] / 1e8),  # 억 원
             "p": closes,
-            "r": vol_ratio(vols),
+            "r": vol_ratio(vols, scale),
         })
 
-    now = datetime.now(KST)
     data = {
         "updated": now.strftime("%Y-%m-%d %H:%M"),
-        "partialWeek": now.weekday() < 4 or (now.weekday() == 4 and now.hour < 16),
+        "partialWeek": partial,  # 마지막 주봉이 아직 진행 중(금요일 마감 전)이면 true → 화면에 '잠정'
+        "weekDays": days,        # 마지막 주봉에 들어간 거래일 수
+
         "criteria": "주봉 5주선이 20주선을 아래에서 위로 돌파 · 돌파 주 거래량이 직전 20주 평균의 1.5배 이상 · 이탈 뒤 4주 안에 다시 돌파 못 하면 제외 · 코스피·코스닥 · 시총 1000억 이상 · ETF·ETN·스팩 제외",
         "dates": dates,
         "stocks": stocks,
     }
     DATA_DIR.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"저장 {len(stocks)}종목 · 마지막 주 {dates[-1]} · 실패 {len(errors)} · "
+    print(f"저장 {len(stocks)}종목 · 마지막 주 {dates[-1]}{f' (잠정, 거래일 {days}일)' if partial else ' (확정)'} · 실패 {len(errors)} · "
           f"{OUT.stat().st_size / 1024:.0f}KB · {time.time() - t0:.0f}초")
     if errors:
         print("실패 예:", errors[:5], file=sys.stderr)

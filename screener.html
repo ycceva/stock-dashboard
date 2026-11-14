@@ -64,6 +64,9 @@
     .gc-dot.dn { border: 1.5px solid var(--down); background: var(--card); }
     .gc-dot.up.weak { background: var(--card); border: 1.5px solid #8a7430; box-shadow: none; }
     .row.dim { opacity: .45; }
+    .gc-dot.tent { opacity: .6; outline: 1px dashed currentColor; outline-offset: 2px; color: var(--yellow); }
+    .gc-dot.dn.tent { color: var(--down); }
+    .tent-chip { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 8px; border: 1px dashed #8a7430; color: var(--yellow); letter-spacing: 0; font-weight: 400; }
     .hist .w { color: #6b6b6b; }
 
     /* ── 줄 목록 ── */
@@ -157,7 +160,8 @@
 
     <!-- ② 이번 주 새로 돌파 -->
     <div class="sec">
-      <div class="sec-title"><span>이번 주 새로 돌파</span><span class="n" id="newCount"></span></div>
+      <div class="sec-title"><span>이번 주 새로 돌파</span><span id="newTent"></span><span class="n" id="newCount"></span></div>
+      <div class="sec-desc" id="newDesc" style="display:none"></div>
       <div id="newGrid"></div>
     </div>
 
@@ -198,6 +202,7 @@
     const fmt = n => n.toLocaleString('ko-KR');
     const ymd = s => `${s.slice(0, 4)}.${s.slice(4, 6)}.${s.slice(6, 8)}`;
     const md = s => `${+s.slice(4, 6)}/${+s.slice(6, 8)}`;
+    const dow = s => '일월화수목금토'[new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)).getDay()];
     const signed = (v, d = 1) => v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`;
     const cls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
     const capLabel = eok => eok >= 10000 ? `${(eok / 10000).toFixed(eok >= 100000 ? 0 : 1)}조` : `${fmt(eok)}억`;
@@ -207,7 +212,7 @@
 
     function hist(t) {
       if (!t.ev.length) return '기준 주 이후 돌파·이탈 없음';
-      return t.ev.map(e => `<span class="${e.up ? (e.vol ? 'u' : 'w') : 'd'}">${md(D.dates[e.i])}${e.up ? '↑' + (e.vr != null ? e.vr.toFixed(1) + '배' : '') : '↓'}</span>`).join(' ');
+      return t.ev.map(e => `<span class="${e.up ? (e.vol ? 'u' : 'w') : 'd'}">${md(D.dates[e.i])}${e.up ? '↑' + (e.vr != null ? e.vr.toFixed(1) + '배' : '') : '↓'}${e.tent ? '(잠정)' : ''}</span>`).join(' ');
     }
 
     function row(st, t, opt = {}) {
@@ -233,7 +238,7 @@
       const rank = x => !x.t ? 3 : x.t.expiredAt != null ? 2 : x.t.thisWeek ? 0 : 1;
       items.sort((x, y) => (rank(x) - rank(y)) || (y.w.at.localeCompare(x.w.at)));
       const changed = items.filter(x => x.t?.thisWeek && x.t.expiredAt == null).length;
-      $('watchCount').textContent = WATCH.length ? `${WATCH.length}종목${changed ? ` · 이번 주 변화 ${changed}` : ''}` : '';
+      $('watchCount').textContent = WATCH.length ? `${WATCH.length}종목${changed ? ` · 이번 주 ${D.partialWeek ? '잠정 ' : ''}변화 ${changed}` : ''}` : '';
       $('watchRows').innerHTML = items.length ? items.map(x => x.missing
         ? `<div class="row"><div class="r-name"><b>${esc(x.w.n)}</b><span>${x.w.c}</span></div><div class="r-chart"></div><div class="r-state"><span class="chip">데이터 없음</span><div class="hist">시총 1000억 아래로 내려갔거나 거래정지</div></div><div></div><button class="star on" data-c="${x.w.c}">★</button></div>`
         : row(x.st, x.t, { alert: true, retLabel: '기준' })).join('')
@@ -246,7 +251,13 @@
         const e = a.events[a.events.length - 1];
         return e && e.up && e.vol && e.i === a.last;
       }).sort((x, y) => y.st.cap - x.st.cap);
-      $('newCount').textContent = `${list.length}종목 · ${md(D.dates[D.dates.length - 1])} 주`;
+      const lastD = D.dates[D.dates.length - 1];
+      $('newCount').textContent = `${list.length}종목 · ${md(lastD)}${D.partialWeek ? `(${dow(lastD)})까지` : ' 주'}`;
+      $('newTent').innerHTML = D.partialWeek ? '<span class="tent-chip">잠정</span>' : '';
+      $('newDesc').style.display = D.partialWeek ? '' : 'none';
+      $('newDesc').textContent = D.partialWeek
+        ? `이번 주는 아직 진행 중이에요. ${dow(lastD)}요일 종가로 계산한 잠정 결과라 금요일 마감 때까지 바뀔 수 있어요. 거래량은 지난 ${D.weekDays}거래일 치를 한 주 치로 늘려(×5/${D.weekDays}) 비교했어요.`
+        : '';
       $('newGrid').innerHTML = list.length ? `<div class="grid">${list.map(a => {
         const st = a.st, prev = st.p[a.last - 1], chg = prev ? (st.p[a.last] / prev - 1) * 100 : null;
         const reX = a.events.filter(e => e.up && e.i > a.last - GC.RECENT).length > 1;
@@ -341,9 +352,9 @@
         const [d, watch] = await Promise.all([GC.loadData(), GC.loadWatch(db)]);
         D = d; WATCH = watch;
         const lastDate = D.dates[D.dates.length - 1];
-        const partial = D.partialWeek ? ` · <span class="warn">이번 주는 아직 진행 중이라 금요일 마감 뒤 바뀔 수 있어요</span>` : '';
-        $('info').innerHTML = `<b>${esc(D.criteria)}</b><br>기준 주봉 ${ymd(lastDate)} 마감 · 살펴본 종목 ${fmt(D.stocks.length)}개 · 갱신 ${D.updated}${partial}<br>
-          <span class="legend"><span><i style="background:var(--price)"></i>주가</span><span><i style="background:var(--yellow)"></i>5주선</span><span><i style="background:var(--ma20)"></i>20주선</span><span><i class="gc-dot up"></i>거래량 동반 돌파</span><span><i class="gc-dot up weak"></i>거래량 없는 돌파</span><span><i class="gc-dot dn"></i>이탈</span><span>점선 = 기준 주 · 이름을 누르면 네이버 증권</span></span>`;
+        const partial = D.partialWeek ? ` · <span class="warn">이번 주는 ${dow(lastDate)}요일까지 잠정, 금요일 마감 뒤 확정</span>` : '';
+        $('info').innerHTML = `<b>${esc(D.criteria)}</b><br>기준 주봉 ${ymd(lastDate)}${D.partialWeek ? `(${dow(lastDate)})` : ' 마감'} · 살펴본 종목 ${fmt(D.stocks.length)}개 · 갱신 ${D.updated}${partial}<br>
+          <span class="legend"><span><i style="background:var(--price)"></i>주가</span><span><i style="background:var(--yellow)"></i>5주선</span><span><i style="background:var(--ma20)"></i>20주선</span><span><i class="gc-dot up"></i>거래량 동반 돌파</span><span><i class="gc-dot up weak"></i>거래량 없는 돌파</span><span><i class="gc-dot dn"></i>이탈</span><span>점선 테두리 = 잠정</span><span>점선 = 기준 주 · 이름을 누르면 네이버 증권</span></span>`;
         $('stockList').innerHTML = D.stocks.map(s => `<option value="${esc(s.n)} (${s.c})">`).join('');
         computeRecent();
         renderAll();

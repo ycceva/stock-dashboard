@@ -1,5 +1,5 @@
 // 주봉 골든크로스 계산·찜 목록 (screener.html, index.html 공용)
-// data/weekly.json(전 종목 52주 주봉 종가)으로 5주선·20주선과 돌파·이탈 이력을 계산한다.
+// data/weekly.json(전 종목 52주 주봉 종가·거래량 배수)으로 5주선·20주선과 돌파·이탈 이력을 계산한다.
 // 찜 목록은 study_notes의 id 'gc_watch' 한 줄에 JSON으로 둔다(백업 버튼이 함께 챙긴다).
 const GC = (() => {
   const SHORT = 5, LONG = 20;
@@ -8,6 +8,7 @@ const GC = (() => {
   const RECENT = 12;   // "12주 안 재돌파" 표시 기준(주)
   const CHART = 30;    // 미니차트에 그릴 주 수
   const WATCH_ID = 'gc_watch';
+  let PARTIAL = false;  // 마지막 주봉이 진행 중(금요일 마감 전)이면 true — 그 주 돌파·이탈은 잠정
 
   function sma(p, n) {
     const out = new Array(p.length).fill(null);
@@ -28,7 +29,7 @@ const GC = (() => {
     for (let i = 1; i <= last; i++) {
       if (sign[i] != null && sign[i - 1] != null && sign[i] !== sign[i - 1]) {
         const up = sign[i] === 1, vr = r[i] ?? null;
-        events.push({ i, up, vr, vol: up && vr != null && vr >= VOL_X });
+        events.push({ i, up, vr, vol: up && vr != null && vr >= VOL_X, tent: PARTIAL && i === last });
       }
     }
     return { st, s, l, sign, events, last, above: sign[last] === 1 };
@@ -43,11 +44,12 @@ const GC = (() => {
     const hadDown = ev.some(e => !e.up && e.i > from);
     const kind = !a.above ? 'down' : hadDown ? 're' : 'hold';
     let expiredAt = null, wait = null;
+    const lastFull = PARTIAL ? a.last - 1 : a.last;  // 4주 셈은 확정된 주까지만
     for (const d of ev) {
       if (d.up || d.i === from) continue;
       const nextUp = a.events.find(e => e.up && e.i > d.i);
       const gap = (nextUp ? nextUp.i : Infinity) - d.i;
-      if (gap > REBOUND && d.i + REBOUND <= a.last) { expiredAt = d.i + REBOUND; break; }
+      if (gap > REBOUND && d.i + REBOUND <= lastFull) { expiredAt = d.i + REBOUND; break; }
       if (!nextUp) wait = REBOUND - (a.last - d.i);
     }
     const lastEv = a.events[a.events.length - 1];
@@ -73,8 +75,9 @@ const GC = (() => {
 
   function stateLabel(t) {
     if (t.expiredAt != null) return `이탈 뒤 ${REBOUND}주 반등 없음`;
-    if (t.thisWeek === 'up') return t.kind === 're' ? '이번 주 재돌파' : '이번 주 돌파';
-    if (t.thisWeek === 'down') return `이번 주 이탈 · ${REBOUND}주 안에 반등해야`;
+    const tent = PARTIAL && t.thisWeek ? '(잠정)' : '';
+    if (t.thisWeek === 'up') return (t.kind === 're' ? '이번 주 재돌파' : '이번 주 돌파') + tent;
+    if (t.thisWeek === 'down') return `이번 주 이탈${tent} · ${REBOUND}주 안에 반등해야`;
     const w = t.weeks ? ` ${t.weeks}주째` : '';
     if (t.kind === 'hold') return t.ev.some(e => e.up) ? `유지${w}` : `위${w}`;
     if (t.kind === 're') return `재돌파 뒤 유지${w}`;
@@ -88,7 +91,7 @@ const GC = (() => {
     if (!dataPromise) {
       dataPromise = fetch('data/weekly.json', { cache: 'no-store' })
         .then(r => { if (!r.ok) throw new Error('주봉 데이터 ' + r.status); return r.json(); })
-        .then(d => { d.byCode = new Map(d.stocks.map(st => [st.c, st])); return d; });
+        .then(d => { PARTIAL = !!d.partialWeek; d.byCode = new Map(d.stocks.map(st => [st.c, st])); return d; });
     }
     return dataPromise;
   }
@@ -135,7 +138,7 @@ const GC = (() => {
     }
     const dots = a.events.filter(e => e.i >= off).map(e => {
       const left = (x(e.i - off) / W * 100).toFixed(2), top = y(s[e.i - off]).toFixed(1);
-      return `<i class="gc-dot ${e.up ? (e.vol ? 'up' : 'up weak') : 'dn'}" style="left:${left}%;top:${top}px"></i>`;
+      return `<i class="gc-dot ${e.up ? (e.vol ? 'up' : 'up weak') : 'dn'}${e.tent ? ' tent' : ''}" style="left:${left}%;top:${top}px"></i>`;
     }).join('');
     return `<div class="gc-chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px">${marks}
       ${line(path(pc), 'var(--price)', 1)}${line(path(l), 'var(--ma20)', 1.6)}${line(path(s), 'var(--yellow)', 1.6)}</svg>${dots}</div>`;
@@ -152,7 +155,7 @@ const GC = (() => {
         const t = track(a, indexOf(d.dates, w.at));
         if (t.thisWeek && t.expiredAt == null) n++;
       }
-      el.textContent = n ? `변화 ${n}` : '';
+      el.textContent = n ? `${PARTIAL ? '잠정 ' : ''}변화 ${n}` : '';
       el.style.display = n ? '' : 'none';
     } catch (e) { console.warn('골든크로스 표시 실패', e); }
   }
